@@ -236,38 +236,85 @@ var Event = /*#__PURE__*/function () {
 }();
 
 var Matrix = /*#__PURE__*/function () {
-  function Matrix() {
+  function Matrix(a, b, c, d, e, f) {
     _classCallCheck(this, Matrix);
-    _defineProperty(this, "a", 1);
-    _defineProperty(this, "b", 0);
-    _defineProperty(this, "c", 0);
-    _defineProperty(this, "d", 1);
-    _defineProperty(this, "e", 0);
-    _defineProperty(this, "f", 0);
+    this.a = a || 1;
+    this.b = b || 0;
+    this.c = c || 0;
+    this.d = d || 1;
+    this.e = e || 0;
+    this.f = f || 0;
   }
+  /**
+   * matrix translate
+   * 矩阵平移
+   * @param {*} x 
+   * @param {*} y 
+   * @returns 
+   */
   _createClass(Matrix, [{
     key: "translate",
     value: function translate(x, y) {
       return this.transform(1, 0, 0, 1, x, y);
     }
+    /**
+     * matrix scale
+     * 矩阵缩放指定倍数
+     * @param {*} x 
+     * @returns 
+     */
   }, {
     key: "scaleU",
     value: function scaleU(x) {
       return this.transform(x, 0, 0, x, 0, 0);
     }
+    /**
+     * Multiples corresponding to x-axis and y-axis scaling
+     * x轴y轴缩放对应的倍数
+     * @param {*} x 
+     * @param {*} y 
+     * @returns 
+     */
+  }, {
+    key: "scale",
+    value: function scale(x, y) {
+      return this.transform(x, 0, 0, y, 0, 0);
+    }
+    /**
+     * rotate Matrix
+     * 旋转矩阵
+     * @param {*} radian 
+     * @returns 
+     */
   }, {
     key: "rotate",
-    value: function rotate(angle) {
-      var cos = Math.cos(angle),
-        sin = Math.sin(angle);
+    value: function rotate(radian) {
+      var cos = Math.cos(radian),
+        sin = Math.sin(radian);
       return this.transform(cos, sin, -sin, cos, 0, 0);
     }
+    /**
+     * angle to radian
+     * 角度转弧度
+     * @param {*} angle 
+     * @returns 
+     */
   }, {
     key: "rotateAngle",
     value: function rotateAngle(angle) {
-      var a = angle / 180 * Math.PI;
-      return this.rotate(a);
+      var radian = angle / 180 * Math.PI;
+      return this.rotate(radian);
     }
+    /**
+     * Matrix 叉乘
+     * @param {*} a2 
+     * @param {*} b2 
+     * @param {*} c2 
+     * @param {*} d2 
+     * @param {*} e2 
+     * @param {*} f2 
+     * @returns 
+     */
   }, {
     key: "transform",
     value: function transform(a2, b2, c2, d2, e2, f2) {
@@ -296,9 +343,15 @@ var Matrix = /*#__PURE__*/function () {
       me.d = b1 * c2 + d1 * d2;
       me.e = a1 * e2 + c1 * f2 + e1;
       me.f = b1 * e2 + d1 * f2 + f1;
-      // console.log('me---------------', me)
       return me;
     }
+    /**
+     * Apply the current matrix to point
+     * 将当前矩阵应用到传入的点
+     * @param {*} x 
+     * @param {*} y 
+     * @returns 
+     */
   }, {
     key: "applyToPoint",
     value: function applyToPoint(x, y) {
@@ -308,17 +361,15 @@ var Matrix = /*#__PURE__*/function () {
         y: x * me.b + y * me.d + me.f
       };
     }
+    /**
+     * clone a new Matrix
+     * 克隆一个新的矩阵
+     * @returns new Matrix
+     */
   }, {
     key: "clone",
     value: function clone() {
-      return {
-        a: this.a,
-        b: this.b,
-        c: this.c,
-        d: this.d,
-        e: this.e,
-        f: this.f
-      };
+      return new Matrix(this.a, this.b, this.c, this.d, this.e, this.f);
     }
   }]);
   return Matrix;
@@ -465,14 +516,16 @@ var Selectable = /*#__PURE__*/function (_Event) {
         item.setCoords && item.setCoords(_this2.lowerContext, _this2);
       });
       (_this$_objects = this._objects).push.apply(_this$_objects, rest);
+      this.emit('obj:add');
       this.requestRenderAll();
     }
   }, {
     key: "remove",
-    value: function remove(loomObj) {
+    value: function remove(drawObj) {
       this._objects = this._objects.filter(function (item) {
-        return item.id !== loomObj.id;
+        return item.id !== drawObj.id;
       });
+      this.emit('obj:remove');
     }
   }, {
     key: "requestRenderAll",
@@ -483,15 +536,18 @@ var Selectable = /*#__PURE__*/function (_Event) {
     key: "_renderAll",
     value: function _renderAll() {
       var _this3 = this;
+      this.lowerContext.setTransform(this.transformMatrix.clone());
       this.clearContext(this.lowerContext);
       if (this.backgroundImage) {
         this.drawBackground(this.lowerContext);
       }
+      this.emit('render:before');
       this.lowerContext.save();
       this._objects.forEach(function (item) {
         item.render(_this3.lowerContext, _this3);
       });
       this.lowerContext.restore();
+      this.emit('render:after');
     }
   }, {
     key: "setBackground",
@@ -549,9 +605,6 @@ var Selectable = /*#__PURE__*/function (_Event) {
       this.clearContext(ctx);
       this.renderTopLayer(ctx);
       // todo: how do i know if the after:render is for the top or normal contex?
-      this.emit("after:render", {
-        ctx: ctx
-      });
     }
   }, {
     key: "renderTopLayer",
@@ -732,108 +785,8 @@ var Selectable = /*#__PURE__*/function (_Event) {
   return Selectable;
 }(Event);
 
-var calcScaleX = function calcScaleX(target, loomObj, pos, defaultTransform, mousedownPos) {
-  var _getDefaultParams = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
-    width = _getDefaultParams.width,
-    originX = _getDefaultParams.originX,
-    originY = _getDefaultParams.originY,
-    angle = _getDefaultParams.angle,
-    msPos = _getDefaultParams.msPos,
-    pointer = _getDefaultParams.pointer;
-  var scale = 1;
-  scale = target.base === 'left-center' ? (width + pointer.x - msPos.x) / loomObj.width : (width - (pointer.x - msPos.x)) / loomObj.width;
-  loomObj.set('scaleX', scale);
-  var l = originX + (pointer.x - msPos.x) / 2;
-  var newC = {
-    x: (l - originX) * Math.cos(angle) - (originY - originY) * Math.sin(angle) + originX,
-    y: (l - originX) * Math.sin(angle) + (originY - originY) * Math.cos(angle) + originY
-  };
-  loomObj.set('originX', newC.x);
-  loomObj.set('originY', newC.y);
-};
-var calcScaleY = function calcScaleY(target, loomObj, pos, defaultTransform, mousedownPos) {
-  var _getDefaultParams2 = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
-    height = _getDefaultParams2.height,
-    originX = _getDefaultParams2.originX,
-    originY = _getDefaultParams2.originY,
-    angle = _getDefaultParams2.angle,
-    msPos = _getDefaultParams2.msPos,
-    pointer = _getDefaultParams2.pointer;
-  var scale = 1;
-  scale = target.base === 'center-top' ? (height + pointer.y - msPos.y) / loomObj.height : (height + msPos.y - pointer.y) / loomObj.height;
-  loomObj.set("scaleY", scale);
-  var t = originY + (pointer.y - msPos.y) / 2;
-  var newC = {
-    x: (originX - originX) * Math.cos(angle) - (t - originY) * Math.sin(angle) + originX,
-    y: (originX - originX) * Math.sin(angle) + (t - originY) * Math.cos(angle) + originY
-  };
-  loomObj.set("originX", newC.x);
-  loomObj.set("originY", newC.y);
-};
-var calcScaleAll = function calcScaleAll(target, loomObj, pos, defaultTransform, mousedownPos) {
-  var _getDefaultParams3 = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
-    width = _getDefaultParams3.width,
-    height = _getDefaultParams3.height,
-    originX = _getDefaultParams3.originX,
-    originY = _getDefaultParams3.originY,
-    angle = _getDefaultParams3.angle,
-    msPos = _getDefaultParams3.msPos,
-    pointer = _getDefaultParams3.pointer;
-  var scaleX, scaleY;
-  switch (target.base) {
-    case 'left-top':
-      scaleX = (width + pointer.x - msPos.x) / loomObj.width;
-      scaleY = (height + pointer.y - msPos.y) / loomObj.height;
-      break;
-    case 'right-bottom':
-      scaleX = (width + msPos.x - pointer.x) / loomObj.width;
-      scaleY = (height + msPos.y - pointer.y) / loomObj.height;
-      break;
-    case 'left-bottom':
-      scaleX = (width + pointer.x - msPos.x) / loomObj.width;
-      scaleY = (height + msPos.y - pointer.y) / loomObj.height;
-      break;
-    case 'right-top':
-      scaleX = (width + msPos.x - pointer.x) / loomObj.width;
-      scaleY = (height + pointer.y - msPos.y) / loomObj.height;
-      break;
-  }
-  // let scaleX = target.base === 'left-top' ? (width + pointer.x - msPos.x) / loomObj.width : (width + msPos.x - pointer.x) / loomObj.width;
-  // let scaleY = target.base === 'left-top' ? (height + pointer.y - msPos.y) / loomObj.height : (height + msPos.x - pointer.x) / loomObj.height;
-  loomObj.set("scaleX", scaleX);
-  loomObj.set("scaleY", scaleY);
-  var t = originY + (pointer.y - msPos.y) / 2;
-  var l = originX + (pointer.x - msPos.x) / 2;
-  var newC = {
-    x: (l - originX) * Math.cos(angle) - (t - originY) * Math.sin(angle) + originX,
-    y: (l - originX) * Math.sin(angle) + (t - originY) * Math.cos(angle) + originY
-  };
-  loomObj.set("originX", newC.x);
-  loomObj.set("originY", newC.y);
-};
 var cache = {
   startPos: null
-};
-var rotateObject = function rotateObject(target, loomObj, pos, defaultTransform, mousedownPos) {
-  var _getDefaultParams4 = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
-    originX = _getDefaultParams4.originX,
-    originY = _getDefaultParams4.originY,
-    cachePos = _getDefaultParams4.cachePos;
-  if (!cache.startPos) {
-    cache.startPos = mousedownPos;
-  }
-  var initAngle = Math.atan2(cache.startPos.y - originY, cache.startPos.x - originX);
-  var currentAngle = Math.atan2(cachePos.y - originY, cachePos.x - originX);
-  var rotate_angle = currentAngle - initAngle;
-  // angle += rotate_angle
-  loomObj.set("angle", loomObj.angle + rotate_angle);
-  // this.startPos = pos;
-  cache.startPos = cachePos;
-  if (loomObj.angle * 180 / Math.PI < 0) {
-    360 + loomObj.angle * 180 / Math.PI;
-  } else {
-    loomObj.angle * 180 / Math.PI;
-  }
 };
 function getDefaultParams(target, pointer, defaultTransform, mousedownPos) {
   var width = defaultTransform.width,
@@ -867,12 +820,12 @@ function getDefaultParams(target, pointer, defaultTransform, mousedownPos) {
     cachePos: cachePos
   };
 }
-var calcPolygon = function calcPolygon(target, loomObj, pos, defaultTransform, mousedownPos) {
+var editPolygon = function editPolygon(target, loomObj, pos, defaultTransform, mousedownPos) {
   target.left = pos.x;
   target.top = pos.y;
   loomObj.points[target.index] = target.getCoords();
 };
-var calcPolygonCenter = function calcPolygonCenter(target, loomObj, pos) {
+var editPolygonCenter = function editPolygonCenter(target, loomObj, pos) {
   loomObj.points.splice(target.index + 1, 0, target.getCoords());
   // this.activeShape.points.splice(
   //     this.editIndex[1] + 1,
@@ -887,8 +840,8 @@ var moveObject = function moveObject(target, loomObj, pos, defaultTransform, mou
     cache.startPos = mousedownPos;
   }
   if (loomObj !== null && loomObj !== void 0 && loomObj.left && loomObj !== null && loomObj !== void 0 && loomObj.top) {
-    loomObj.left = loomObj.originX += pos.x - cache.startPos.x;
-    loomObj.top = loomObj.originY += pos.y - cache.startPos.y;
+    loomObj.originX += pos.x - cache.startPos.x;
+    loomObj.originY += pos.y - cache.startPos.y;
   } else {
     loomObj.points.forEach(function (item) {
       item.x += pos.x - cache.startPos.x;
@@ -1013,7 +966,8 @@ var Canvas = /*#__PURE__*/function (_Selectable) {
           var item = this._activeObject.coords[i];
           if (item.isPointInControl(this.getPointer(evt), this.transformMatrix)) {
             this.corner = item;
-            this.setCursor(item.cursor);
+            var cur = this.corner.cursorHandler && this.corner.cursorHandler(this._activeObject, this.corner);
+            this.setCursor(cur || item.cursor);
             break;
           } else {
             this.setCursor('default');
@@ -1165,47 +1119,51 @@ var getRandomId = function getRandomId() {
   return id;
 };
 
-var DrawObject = /*#__PURE__*/function () {
+var DrawObject = /*#__PURE__*/function (_Event) {
+  _inherits(DrawObject, _Event);
+  var _super = _createSuper(DrawObject);
   function DrawObject(options) {
+    var _this;
     _classCallCheck(this, DrawObject);
-    _defineProperty(this, "type", "object");
-    _defineProperty(this, "scaleX", 1);
-    _defineProperty(this, "scaleY", 1);
-    _defineProperty(this, "skewX", 0.0);
+    _this = _super.call(this);
+    _defineProperty(_assertThisInitialized(_this), "type", "object");
+    _defineProperty(_assertThisInitialized(_this), "scaleX", 1);
+    _defineProperty(_assertThisInitialized(_this), "scaleY", 1);
+    _defineProperty(_assertThisInitialized(_this), "skewX", 0.0);
     // Degrees, 0.0 to 3.14
-    _defineProperty(this, "skewY", 0.0);
+    _defineProperty(_assertThisInitialized(_this), "skewY", 0.0);
     // Degrees, 0.0 to 3.14
-    _defineProperty(this, "translateX", 0.0);
-    _defineProperty(this, "translateY", 0.0);
-    _defineProperty(this, "isActive", false);
-    _defineProperty(this, "lineCap", 'round');
-    _defineProperty(this, "lineJoin", 'round');
-    _defineProperty(this, "fill", "");
-    _defineProperty(this, "stroke", "");
-    _defineProperty(this, "opacity", 1.0);
-    _defineProperty(this, "lineWidth", 1.0);
-    _defineProperty(this, "left", 0);
-    _defineProperty(this, "top", 0);
-    _defineProperty(this, "width", 0);
-    _defineProperty(this, "height", 0);
-    _defineProperty(this, "angle", 0);
-    _defineProperty(this, "originX", 0);
-    _defineProperty(this, "originY", 0);
-    _defineProperty(this, "offsetX", 0);
-    _defineProperty(this, "offsetY", 0);
-    _defineProperty(this, "coords", []);
-    _defineProperty(this, "rotate", false);
-    _defineProperty(this, "points", []);
-    _defineProperty(this, "ratio", {
+    _defineProperty(_assertThisInitialized(_this), "translateX", 0.0);
+    _defineProperty(_assertThisInitialized(_this), "translateY", 0.0);
+    _defineProperty(_assertThisInitialized(_this), "isActive", false);
+    _defineProperty(_assertThisInitialized(_this), "lineCap", 'round');
+    _defineProperty(_assertThisInitialized(_this), "lineJoin", 'round');
+    _defineProperty(_assertThisInitialized(_this), "fill", "");
+    _defineProperty(_assertThisInitialized(_this), "stroke", "");
+    _defineProperty(_assertThisInitialized(_this), "opacity", 1.0);
+    _defineProperty(_assertThisInitialized(_this), "lineWidth", 1.0);
+    _defineProperty(_assertThisInitialized(_this), "left", 0);
+    _defineProperty(_assertThisInitialized(_this), "top", 0);
+    _defineProperty(_assertThisInitialized(_this), "width", 0);
+    _defineProperty(_assertThisInitialized(_this), "height", 0);
+    _defineProperty(_assertThisInitialized(_this), "angle", 0);
+    _defineProperty(_assertThisInitialized(_this), "originX", 0);
+    _defineProperty(_assertThisInitialized(_this), "originY", 0);
+    _defineProperty(_assertThisInitialized(_this), "offsetX", 0);
+    _defineProperty(_assertThisInitialized(_this), "offsetY", 0);
+    _defineProperty(_assertThisInitialized(_this), "coords", []);
+    _defineProperty(_assertThisInitialized(_this), "rotate", false);
+    _defineProperty(_assertThisInitialized(_this), "points", []);
+    _defineProperty(_assertThisInitialized(_this), "ratio", {
       x: 1,
       y: 1
     });
-    _defineProperty(this, "cornerSize", 10);
-    _defineProperty(this, "cornerStyle", 'rect');
-    _defineProperty(this, "cornerBorderColor", '#000');
-    _defineProperty(this, "cornerColor", '');
-    _defineProperty(this, "cornerOpacity", 1);
-    _defineProperty(this, "transformMatrix", {
+    _defineProperty(_assertThisInitialized(_this), "cornerSize", 10);
+    _defineProperty(_assertThisInitialized(_this), "cornerStyle", 'rect');
+    _defineProperty(_assertThisInitialized(_this), "cornerBorderColor", '#000');
+    _defineProperty(_assertThisInitialized(_this), "cornerColor", '');
+    _defineProperty(_assertThisInitialized(_this), "cornerOpacity", 1);
+    _defineProperty(_assertThisInitialized(_this), "transformMatrix", {
       a: 1,
       b: 0,
       c: 0,
@@ -1213,10 +1171,11 @@ var DrawObject = /*#__PURE__*/function () {
       e: 0,
       f: 0
     });
-    _defineProperty(this, "notNeedFindTarget", false);
-    _defineProperty(this, "lockMove", false);
-    this.setOptions(options);
-    this.id = getRandomId();
+    _defineProperty(_assertThisInitialized(_this), "notNeedFindTarget", false);
+    _defineProperty(_assertThisInitialized(_this), "lockMove", false);
+    _this.setOptions(options);
+    _this.id = getRandomId();
+    return _this;
   }
   _createClass(DrawObject, [{
     key: "setOptions",
@@ -1271,16 +1230,16 @@ var DrawObject = /*#__PURE__*/function () {
   }, {
     key: "_drawControls",
     value: function _drawControls(ctx) {
-      var _this = this,
+      var _this2 = this,
         _this$centerControlCo;
       // 绘制控制点
       ctx.save();
       this.coords.forEach(function (item) {
         // console.log(item)
-        item.drawControl(ctx, _this.angle);
+        item.drawControl(ctx, _this2.angle);
       });
       ((_this$centerControlCo = this.centerControlCoords) === null || _this$centerControlCo === void 0 ? void 0 : _this$centerControlCo.length) && this.centerControlCoords.forEach(function (item) {
-        item.drawControl(ctx, _this.angle);
+        item.drawControl(ctx, _this2.angle);
       });
       ctx.restore();
     }
@@ -1319,7 +1278,7 @@ var DrawObject = /*#__PURE__*/function () {
     }
   }]);
   return DrawObject;
-}();
+}(Event);
 
 var Control = /*#__PURE__*/function () {
   function Control(options) {
@@ -1428,13 +1387,182 @@ var Control = /*#__PURE__*/function () {
   return Control;
 }();
 
-var rotatePoint = function rotatePoint(pos, origin, angle) {
-  // pos 点基于 origin点旋转angle°得到的点坐标
-  return {
-    x: (pos.x - origin.x) * Math.cos(angle) - (pos.y - origin.y) * Math.sin(angle) + origin.x,
-    y: (pos.x - origin.x) * Math.sin(angle) + (pos.y - origin.y) * Math.cos(angle) + origin.y
-  };
+var scaleCursor = function scaleCursor(obj, control) {
+  var scaleMap = ['e', 'se', 's', 'sw', 'w', 'nw', 'n', 'ne', 'e'];
+  var _obj$matrix = obj.matrix,
+    a = _obj$matrix.a,
+    b = _obj$matrix.b;
+  var angle = Math.atan2(b, a);
+  var cornerAngle = angle / (Math.PI / 180) + Math.atan2(control.y, control.x) / (Math.PI / 180) + 360;
+  var cursor = scaleMap[Math.round(cornerAngle % 360 / 45) % 4];
+  return "".concat(cursor, "-resize");
 };
+var calcScaleX = function calcScaleX(target, loomObj, pos, defaultTransform, mousedownPos) {
+  var _getDefaultParams = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
+    width = _getDefaultParams.width,
+    originX = _getDefaultParams.originX,
+    originY = _getDefaultParams.originY,
+    angle = _getDefaultParams.angle,
+    msPos = _getDefaultParams.msPos,
+    pointer = _getDefaultParams.pointer;
+  var scale = 1;
+  scale = target.base === 'left-center' ? (width + pointer.x - msPos.x) / loomObj.width : (width - (pointer.x - msPos.x)) / loomObj.width;
+  loomObj.set('scaleX', scale);
+  var l = originX + (pointer.x - msPos.x) / 2;
+  var newC = {
+    x: (l - originX) * Math.cos(angle) - (originY - originY) * Math.sin(angle) + originX,
+    y: (l - originX) * Math.sin(angle) + (originY - originY) * Math.cos(angle) + originY
+  };
+  loomObj.set('originX', newC.x);
+  loomObj.set('originY', newC.y);
+};
+var calcScaleY = function calcScaleY(target, loomObj, pos, defaultTransform, mousedownPos) {
+  var _getDefaultParams2 = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
+    height = _getDefaultParams2.height,
+    originX = _getDefaultParams2.originX,
+    originY = _getDefaultParams2.originY,
+    angle = _getDefaultParams2.angle,
+    msPos = _getDefaultParams2.msPos,
+    pointer = _getDefaultParams2.pointer;
+  var scale = 1;
+  scale = target.base === 'center-top' ? (height + pointer.y - msPos.y) / loomObj.height : (height + msPos.y - pointer.y) / loomObj.height;
+  loomObj.set("scaleY", scale);
+  var t = originY + (pointer.y - msPos.y) / 2;
+  var newC = {
+    x: (originX - originX) * Math.cos(angle) - (t - originY) * Math.sin(angle) + originX,
+    y: (originX - originX) * Math.sin(angle) + (t - originY) * Math.cos(angle) + originY
+  };
+  loomObj.set("originX", newC.x);
+  loomObj.set("originY", newC.y);
+};
+var calcScaleAll = function calcScaleAll(target, loomObj, pos, defaultTransform, mousedownPos) {
+  var _getDefaultParams3 = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
+    width = _getDefaultParams3.width,
+    height = _getDefaultParams3.height,
+    originX = _getDefaultParams3.originX,
+    originY = _getDefaultParams3.originY,
+    angle = _getDefaultParams3.angle,
+    msPos = _getDefaultParams3.msPos,
+    pointer = _getDefaultParams3.pointer;
+  var scaleX, scaleY;
+  switch (target.base) {
+    case 'left-top':
+      scaleX = (width + pointer.x - msPos.x) / loomObj.width;
+      scaleY = (height + pointer.y - msPos.y) / loomObj.height;
+      break;
+    case 'right-bottom':
+      scaleX = (width + msPos.x - pointer.x) / loomObj.width;
+      scaleY = (height + msPos.y - pointer.y) / loomObj.height;
+      break;
+    case 'left-bottom':
+      scaleX = (width + pointer.x - msPos.x) / loomObj.width;
+      scaleY = (height + msPos.y - pointer.y) / loomObj.height;
+      break;
+    case 'right-top':
+      scaleX = (width + msPos.x - pointer.x) / loomObj.width;
+      scaleY = (height + pointer.y - msPos.y) / loomObj.height;
+      break;
+  }
+  // let scaleX = target.base === 'left-top' ? (width + pointer.x - msPos.x) / loomObj.width : (width + msPos.x - pointer.x) / loomObj.width;
+  // let scaleY = target.base === 'left-top' ? (height + pointer.y - msPos.y) / loomObj.height : (height + msPos.x - pointer.x) / loomObj.height;
+  loomObj.set("scaleX", scaleX);
+  loomObj.set("scaleY", scaleY);
+  var t = originY + (pointer.y - msPos.y) / 2;
+  var l = originX + (pointer.x - msPos.x) / 2;
+  var newC = {
+    x: (l - originX) * Math.cos(angle) - (t - originY) * Math.sin(angle) + originX,
+    y: (l - originX) * Math.sin(angle) + (t - originY) * Math.cos(angle) + originY
+  };
+  loomObj.set("originX", newC.x);
+  loomObj.set("originY", newC.y);
+};
+
+var rotateObject = function rotateObject(target, loomObj, pos, defaultTransform, mousedownPos) {
+  var _getDefaultParams = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
+    originX = _getDefaultParams.originX,
+    originY = _getDefaultParams.originY,
+    cachePos = _getDefaultParams.cachePos;
+  if (!cache.startPos) {
+    cache.startPos = mousedownPos;
+  }
+  var initAngle = Math.atan2(cache.startPos.y - originY, cache.startPos.x - originX);
+  var currentAngle = Math.atan2(cachePos.y - originY, cachePos.x - originX);
+  var rotate_angle = currentAngle - initAngle;
+  // angle += rotate_angle
+  loomObj.set("angle", loomObj.angle + rotate_angle);
+  // this.startPos = pos;
+  cache.startPos = cachePos;
+  if (loomObj.angle * 180 / Math.PI < 0) {
+    360 + loomObj.angle * 180 / Math.PI;
+  } else {
+    loomObj.angle * 180 / Math.PI;
+  }
+};
+
+/**
+ * class Pot
+ * 点坐标的计算
+ * author fwt-1025
+ */
+var Pot = /*#__PURE__*/function () {
+  function Pot(x, y) {
+    _classCallCheck(this, Pot);
+    this.x = x;
+    this.y = y;
+  }
+  _createClass(Pot, [{
+    key: "add",
+    value: function add(num) {
+      this.x += num;
+      this.y += num;
+      return this;
+    }
+  }, {
+    key: "addApplyPos",
+    value: function addApplyPos(_ref) {
+      var x = _ref.x,
+        y = _ref.y;
+      this.x += x;
+      this.y += y;
+      return this;
+    }
+  }, {
+    key: "del",
+    value: function del(num) {
+      this.x -= num;
+      this.y -= num;
+      return this;
+    }
+  }, {
+    key: "delApplyPos",
+    value: function delApplyPos(_ref2) {
+      var x = _ref2.x,
+        y = _ref2.y;
+      this.x -= x;
+      this.y -= y;
+      return this;
+    }
+  }, {
+    key: "rotate",
+    value: function rotate(angle, origin) {
+      /*
+      * angle 弧度
+      * origin 原点 基点
+      * cos sin  0
+      * -sin cos 0
+      * 0    0   1
+      */
+      return {
+        x: (this.x - origin.x) * Math.cos(angle) - (this.y - origin.y) * Math.sin(angle) + origin.x,
+        y: (this.x - origin.x) * Math.sin(angle) + (this.y - origin.y) * Math.cos(angle) + origin.y
+      };
+      // this.x = (this.x - origin.x) * Math.cos(angle) - (this.y - origin.y) * Math.sin(angle) + origin.x
+      // this.y = (this.x - origin.x) * Math.sin(angle) + (this.y - origin.y) * Math.cos(angle) + origin.y
+      // return this
+    }
+  }]);
+  return Pot;
+}();
 
 var Rect = /*#__PURE__*/function (_DrawObject) {
   _inherits(Rect, _DrawObject);
@@ -1464,6 +1592,7 @@ var Rect = /*#__PURE__*/function (_DrawObject) {
       ctx.closePath();
       this.strokeOrFill(ctx);
       ctx.restore();
+      this.matrix = ctx.getTransform();
     }
   }, {
     key: "setCoords",
@@ -1472,8 +1601,7 @@ var Rect = /*#__PURE__*/function (_DrawObject) {
       var w = this.width * this.scaleX,
         h = this.height * this.scaleY,
         x = this.originX,
-        y = this.originY,
-        mat = ctx.getTransform();
+        y = this.originY;
       var objCenter = {
         x: this.originX,
         y: this.originY
@@ -1481,60 +1609,76 @@ var Rect = /*#__PURE__*/function (_DrawObject) {
       var commonConfig = this.getCommonConfig();
       if (this.type === "rect") {
         this.coords = [new Control(_objectSpread2({
+          x: -w / 2,
+          y: -h / 2,
           left: x - w / 2,
           top: y - h / 2,
           target: this,
           base: 'right-bottom',
-          cursor: this.rotate ? 'pointer' : 'se-resize',
+          cursorHandler: scaleCursor,
           mousemoveHandler: calcScaleAll
         }, commonConfig)), new Control(_objectSpread2({
+          x: 0,
+          y: -h / 2,
           left: x,
           top: y - h / 2,
           target: this,
           base: 'center-bottom',
-          cursor: this.rotate ? 'pointer' : 'n-resize',
+          cursorHandler: scaleCursor,
           mousemoveHandler: calcScaleY
         }, commonConfig)), new Control(_objectSpread2({
+          x: w / 2,
+          y: -h / 2,
           left: x + w / 2,
           top: y - h / 2,
           target: this,
           base: 'left-bottom',
-          cursor: this.rotate ? 'pointer' : 'ne-resize',
+          cursorHandler: scaleCursor,
           mousemoveHandler: calcScaleAll
         }, commonConfig)), new Control(_objectSpread2({
+          x: w / 2,
+          y: 0,
           left: x + w / 2,
           top: y,
           target: this,
           base: 'left-center',
-          cursor: this.rotate ? 'pointer' : 'w-resize',
+          cursorHandler: scaleCursor,
           mousemoveHandler: calcScaleX
         }, commonConfig)), new Control(_objectSpread2({
+          x: w / 2,
+          y: h / 2,
           left: x + w / 2,
           top: y + h / 2,
           target: this,
           base: 'left-top',
-          cursor: this.rotate ? 'pointer' : 'se-resize',
+          cursorHandler: scaleCursor,
           mousemoveHandler: calcScaleAll
         }, commonConfig)), new Control(_objectSpread2({
+          x: 0,
+          y: h / 2,
           left: x,
           top: y + h / 2,
           target: this,
           base: 'center-top',
-          cursor: this.rotate ? 'pointer' : 'n-resize',
+          cursorHandler: scaleCursor,
           mousemoveHandler: calcScaleY
         }, commonConfig)), new Control(_objectSpread2({
+          x: -w / 2,
+          y: h / 2,
           left: x - w / 2,
           top: y + h / 2,
           target: this,
           base: 'right-top',
-          cursor: this.rotate ? 'pointer' : 'ne-resize',
+          cursorHandler: scaleCursor,
           mousemoveHandler: calcScaleAll
         }, commonConfig)), new Control(_objectSpread2({
+          x: -w / 2,
+          y: 0,
           left: x - w / 2,
           top: y,
           target: this,
           base: 'right-center',
-          cursor: this.rotate ? 'pointer' : 'w-resize',
+          cursorHandler: scaleCursor,
           mousemoveHandler: calcScaleX
         }, commonConfig))];
         var coords = this.coords.map(function (item) {
@@ -1550,8 +1694,8 @@ var Rect = /*#__PURE__*/function (_DrawObject) {
         this.textY = minY;
         if (this.rotate) {
           this.coords.push(new Control(_objectSpread2({
-            left: minX + Math.abs(w) / 2,
-            top: minY - 40 / mat.a,
+            left: x,
+            top: minY - 40,
             target: this,
             base: 'center-center',
             cursor: 'crosshair',
@@ -1559,13 +1703,11 @@ var Rect = /*#__PURE__*/function (_DrawObject) {
           }, commonConfig)));
         }
       }
-      this.coords.forEach(function (item) {
-        var _rotatePoint = rotatePoint({
-            x: item.left,
-            y: item.top
-          }, objCenter, _this2.angle),
-          x = _rotatePoint.x,
-          y = _rotatePoint.y;
+      this.coords.forEach(function (item, index) {
+        var pot = new Pot(item.left, item.top);
+        var _pot$rotate = pot.rotate(_this2.angle, objCenter),
+          x = _pot$rotate.x,
+          y = _pot$rotate.y;
         item.left = x;
         item.top = y;
       });
@@ -1670,7 +1812,7 @@ var Polygon = /*#__PURE__*/function (_DrawObject) {
           target: _this2,
           cursor: "pointer",
           index: index,
-          mousemoveHandler: calcPolygon
+          mousemoveHandler: editPolygon
         }, _this2.getCommonConfig()));
       });
     }
@@ -1700,7 +1842,7 @@ var Polygon = /*#__PURE__*/function (_DrawObject) {
           cornerSize: _this3.centerPointsSize,
           cornerBorderColor: _this3.centerPointsStroke,
           cornerColor: _this3.centerPointsFill,
-          mousedownHandler: calcPolygonCenter
+          mousedownHandler: editPolygonCenter
         });
       });
     }
@@ -1723,13 +1865,6 @@ var Line = /*#__PURE__*/function (_DrawObject) {
   _createClass(Line, [{
     key: "_render",
     value: function _render(ctx) {
-      var _this$transformMatrix = this.transformMatrix;
-        _this$transformMatrix.a;
-        _this$transformMatrix.b;
-        _this$transformMatrix.c;
-        _this$transformMatrix.d;
-        _this$transformMatrix.e;
-        _this$transformMatrix.f;
       ctx.save();
       ctx.beginPath();
       ctx.strokeStyle = this.stroke || '#000';
@@ -1753,7 +1888,7 @@ var Line = /*#__PURE__*/function (_DrawObject) {
           target: _this2,
           cursor: "pointer",
           index: index,
-          mousemoveHandler: calcPolygon
+          mousemoveHandler: editPolygon
         }, _this2.getCommonConfig()));
       });
     }
@@ -1780,7 +1915,7 @@ var Line = /*#__PURE__*/function (_DrawObject) {
           target: _this3,
           cursor: "copy",
           index: index,
-          mousedownHandler: calcPolygonCenter
+          mousedownHandler: editPolygonCenter
         });
       });
     }
@@ -1791,7 +1926,6 @@ var Line = /*#__PURE__*/function (_DrawObject) {
       var newPoints = this.points.map(function (p1, i) {
         return [p1, _this4.points[(i + 1) % _this4.points.length]];
       });
-      // .slice(0, this.points.length - 1)
       for (var i = 0, len = newPoints.length; i < len; i++) {
         var p1 = newPoints[i][0];
         var p2 = newPoints[i][1];
@@ -1799,7 +1933,6 @@ var Line = /*#__PURE__*/function (_DrawObject) {
         var l2 = Math.sqrt(Math.pow(pos.x - p2.x, 2) + Math.pow(pos.y - p2.y, 2));
         var l3 = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
         if (l2 + l1 - l3 < 0.5 / this.transformMatrix.a) {
-          // this.canvasmouse.el.style.cursor = 'pointer'
           return true;
         }
       }
@@ -1832,10 +1965,10 @@ var Point = /*#__PURE__*/function (_DrawObject) {
     }
   }, {
     key: "setCoords",
-    value: function setCoords(ctx) {
+    value: function setCoords() {
       this.coords = [new Control({
-        left: this.left,
-        top: this.top,
+        left: this.originX,
+        top: this.originY,
         target: this,
         cursor: 'pointer',
         mousemoveHandler: moveObject
@@ -2237,4 +2370,4 @@ var CrosshairLine = /*#__PURE__*/function (_DrawObject) {
   return CrosshairLine;
 }(DrawObject);
 
-export { Arrow, Canvas, CrosshairLine, DrawObject, Line, Point, Polygon, Rect, Ruler, Text };
+export { Arrow, Canvas, CrosshairLine, DrawObject, Line, Matrix, Point, Polygon, Rect, Ruler, Text };

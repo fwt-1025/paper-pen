@@ -1,5 +1,5 @@
-import Event from "../utils/events";
-import { Matrix } from "../utils/matrix";
+import Event from "../utils/events.js";
+import { Matrix } from "../utils/matrix.js";
 
 const defaultTransfromMatrix = {
     scaleX: 1,
@@ -121,24 +121,29 @@ export class Selectable extends Event {
             item.setCoords && item.setCoords(this.lowerContext, this);
         });
         this._objects.push(...rest);
+        this.emit('obj:add')
         this.requestRenderAll();
     }
-    remove(loomObj) {
-        this._objects = this._objects.filter(item => item.id !== loomObj.id)
+    remove(drawObj) {
+        this._objects = this._objects.filter(item => item.id !== drawObj.id)
+        this.emit('obj:remove')
     }
     requestRenderAll() {
         window.requestAnimationFrame(this._renderAll.bind(this));
     }
     _renderAll() {
+        this.lowerContext.setTransform(this.transformMatrix.clone())
         this.clearContext(this.lowerContext);
         if (this.backgroundImage) {
             this.drawBackground(this.lowerContext);
         }
+        this.emit('render:before')
         this.lowerContext.save();
         this._objects.forEach((item) => {
             item.render(this.lowerContext, this);
         });
         this.lowerContext.restore();
+        this.emit('render:after')
     }
     setBackground(bg, options) {
         if (typeof bg === "string") {
@@ -189,7 +194,6 @@ export class Selectable extends Event {
         this.clearContext(ctx);
         this.renderTopLayer(ctx);
         // todo: how do i know if the after:render is for the top or normal contex?
-        this.emit("after:render", { ctx });
     }
     renderTopLayer(ctx) {
         ctx.save();

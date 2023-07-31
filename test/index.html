@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <canvas id="c"></canvas>
+    <script type="module">
+        import { Canvas, Rect, Polygon } from '../dist/paper-pen.esm.js'
+        let c = new Canvas('#c', {
+            width: 1600,
+            height: 700,
+            skipFindTarget: false
+        })
+        let img = new Image()
+        img.src = './500540b041a30ad044b5a19344f1b24f.jpg'
+        img.onload = () => {
+            c.setBackground(img)
+            let rect = new Rect({
+                left: 100,
+                top: 100,
+                width: 100,
+                height: 100,
+                fill: '#00f',
+                rotate: true
+            })
+            c.add(rect)
+            let poly = new Polygon({
+                points: [
+                    {x: 300, y:300},
+                    {x: 230, y: 450},
+                    {x: 600, y: 550},
+                    {x: 400, y: 300},
+                ],
+                stroke: '#000',
+                lineWidth: 5,
+                fill: '#0f0',
+                opacity: .7
+            })
+            c.add(poly)
+            console.log(c.toObjects())
+        }
+        c.on('mouse:down', opt => {
+            let ms = c.getPointer(opt)
+            if (opt.button !== 2) {
+                return
+            }
+            const moveCanvas = (e) => {
+                let me = c.getPointer(e)
+                let x = me.x - ms.x
+                let y = me.y - ms.y
+                c.transformMatrix.translate(x, y)
+                c.requestRenderAll()
+            }
+            c.on('mouse:move', moveCanvas)
+            c.on('mouse:up', e => {
+                c.off('mouse:move', moveCanvas)
+            })
+        })
+        c.on('mouse:wheel', opt => {
+            let pos = c.getPointer(opt)
+            let scale = opt.deltaY < 0 ? 1 + 0.2 : 1 - 0.2
+            c.transformMatrix.translate(pos.x, pos.y).scaleU(scale)
+            if (c.transformMatrix.a > 40) c.transformMatrix.scaleU(40 / c.transformMatrix.a)
+            if (c.transformMatrix.a < 0.6) c.transformMatrix.scaleU(0.6 / c.transformMatrix.a)
+            c.transformMatrix.translate(-pos.x, -pos.y)
+            c.requestRenderAll()
+        })
+    </script>
+</body>
+</html>

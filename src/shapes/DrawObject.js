@@ -1,5 +1,6 @@
 import { getRandomId } from '../utils/getRandomId'
-export class DrawObject {
+import Event from '../utils/events';
+export class DrawObject extends Event {
     type = "object";
     scaleX = 1;
     scaleY = 1;
@@ -40,6 +41,7 @@ export class DrawObject {
     lockMove = false
 
     constructor(options) {
+        super()
         this.setOptions(options);
         this.id = getRandomId()
     }

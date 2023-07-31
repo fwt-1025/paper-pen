@@ -1,6 +1,6 @@
 import { DrawObject } from "./DrawObject";
-import { Control } from "./Controls";
-import { calcPolygon, calcPolygonCenter } from '../utils/editObject';
+import { Control } from "../control/Controls";
+import { editPolygon, editPolygonCenter } from '../utils/editObject';
 
 export class Line extends DrawObject{
     centerControlPoints = []
@@ -10,7 +10,6 @@ export class Line extends DrawObject{
         this.setOptions(options)
     }
     _render(ctx) {
-        let {a,b,c,d,e,f} = this.transformMatrix
         ctx.save()
         ctx.beginPath()
         ctx.strokeStyle = this.stroke || '#000'
@@ -31,7 +30,7 @@ export class Line extends DrawObject{
                 target: this,
                 cursor: "pointer",
                 index,
-                mousemoveHandler: calcPolygon,
+                mousemoveHandler: editPolygon,
                 ...this.getCommonConfig()
             })
         })
@@ -49,13 +48,12 @@ export class Line extends DrawObject{
                 target: this,
                 cursor: "copy",
                 index,
-                mousedownHandler: calcPolygonCenter
+                mousedownHandler: editPolygonCenter
             })
         })
     }
     isPointInPath(pos) {
         let newPoints = this.points.map((p1, i) => [p1, this.points[(i + 1) % this.points.length]])
-        // .slice(0, this.points.length - 1)
         for (let i = 0, len = newPoints.length; i < len; i++) {
             let p1 = newPoints[i][0]
             let p2 = newPoints[i][1]
@@ -63,11 +61,8 @@ export class Line extends DrawObject{
             let l2 = Math.sqrt((Math.pow(pos.x - p2.x, 2) + Math.pow(pos.y - p2.y, 2)))
             let l3 = Math.sqrt((Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2)))
             if (l2 + l1 - l3 < 0.5 / this.transformMatrix.a) {
-                // this.canvasmouse.el.style.cursor = 'pointer'
                 return true
             } else {
-                // return false
-                // this.canvasmouse.el.style.cursor = 'auto'
             }
         }
     }

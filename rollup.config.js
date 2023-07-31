@@ -12,7 +12,7 @@ process.argv.forEach(item => {
     }
 })
 const inputOptions = Object.assign({
-    input: './loom.js'
+    input: './index.js'
 }, {
     plugins: [
         resolve(),
@@ -22,24 +22,24 @@ const inputOptions = Object.assign({
 let format = ['es', 'es:min', 'umd', 'umd:min']
 let outputConfig = {
     'es': {
-        file: 'dist/loom.esm.js',
+        file: 'dist/paper-pen.esm.js',
         format: 'es'
     },
     'es:min': {
-        file: 'dist/loom.esm.min.js',
+        file: 'dist/paper-pen.esm.min.js',
         format: 'es',
         plugins: [terser()]
     },
     'umd': {
-        file: 'dist/loom.umd.js',
+        file: 'dist/paper-pen.umd.js',
         format: 'umd',
-        name: 'Loom'
+        name: 'PaperPen'
     },
     'umd:min': {
-        file: 'dist/loom.umd.min.js',
+        file: 'dist/paper-pen.umd.min.js',
         format: 'umd',
         plugins: [terser()],
-        name: 'Loom'
+        name: 'PaperPen'
     }
 }
 

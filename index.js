@@ -8,6 +8,7 @@ import { Ruler } from './src/shapes/Ruler'
 import { Text } from './src/shapes/Text'
 import { CrosshairLine } from './src/shapes/CrosshairLine'
 import { DrawObject } from './src/shapes/DrawObject'
+import { Matrix } from './src/utils/matrix'
 
 
 export {
@@ -20,5 +21,6 @@ export {
     Arrow,
     Ruler,
     Text,
-    CrosshairLine
+    CrosshairLine,
+    Matrix
 }

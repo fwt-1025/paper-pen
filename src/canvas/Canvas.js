@@ -96,7 +96,8 @@ export class Canvas extends Selectable {
                 let item = this._activeObject.coords[i];
                 if (item.isPointInControl(this.getPointer(evt), this.transformMatrix)) {
                     this.corner = item;
-                    this.setCursor(item.cursor);
+                    let cur = this.corner.cursorHandler && this.corner.cursorHandler(this._activeObject, this.corner)
+                    this.setCursor(cur || item.cursor);
                     break;
                 } else {
                     this.setCursor('default')

@@ -1,7 +1,9 @@
 import { DrawObject } from './DrawObject'
-import { Control } from "../shapes/Controls";
-import { calcScaleX, calcScaleY, calcScaleAll, rotateObject } from "../utils/editObject";
-import { rotatePoint } from '../utils/computedPoint';
+import { Control } from "../control/Controls";
+import { calcScaleX, calcScaleY, calcScaleAll } from "../control/scale";
+import { rotateObject } from '../control/rotate'
+import { scaleCursor } from '../control/scale'
+import { Pot } from '../utils/Pot';
 
 export class Rect extends DrawObject{
     textX
@@ -24,89 +26,106 @@ export class Rect extends DrawObject{
         ctx.closePath()
         this.strokeOrFill(ctx)
         ctx.restore()
+        this.matrix = ctx.getTransform()
     }
     setCoords(ctx) {
         let w = this.width * this.scaleX,
             h = this.height * this.scaleY,
             x = this.originX,
-            y = this.originY,
-        mat = ctx.getTransform()
+            y = this.originY
         let objCenter = {
             x: this.originX,
             y: this.originY,
         };
+
         let commonConfig = this.getCommonConfig()
         if (this.type === "rect") {
             this.coords = [
                 new Control({
+                    x: - w / 2,
+                    y: - h / 2,
                     left: x - w / 2,
                     top: y - h / 2,
                     target: this,
                     base: 'right-bottom',
-                    cursor: this.rotate ? 'pointer' : 'se-resize',
+                    cursorHandler: scaleCursor,
                     mousemoveHandler: calcScaleAll,
                     ...commonConfig
                 }),
                 new Control({
+                    x: 0,
+                    y: - h / 2,
                     left: x,
                     top: y - h / 2,
                     target: this,
                     base: 'center-bottom',
-                    cursor: this.rotate ? 'pointer' : 'n-resize',
+                    cursorHandler: scaleCursor,
                     mousemoveHandler: calcScaleY,
                     ...commonConfig
                 }),
                 new Control({
+                    x: w / 2,
+                    y: - h / 2,
                     left: x + w / 2,
                     top: y - h / 2,
                     target: this,
                     base: 'left-bottom',
-                    cursor: this.rotate ? 'pointer' : 'ne-resize',
+                    cursorHandler: scaleCursor,
                     mousemoveHandler: calcScaleAll,
                     ...commonConfig
                 }),
                 new Control({
+                    x: w / 2,
+                    y: 0,
                     left: x + w / 2,
                     top: y,
                     target: this,
                     base: 'left-center',
-                    cursor: this.rotate ? 'pointer' : 'w-resize',
+                    cursorHandler: scaleCursor,
                     mousemoveHandler: calcScaleX,
                     ...commonConfig
                 }),
                 new Control({
+                    x: w / 2,
+                    y: h / 2,
                     left: x + w / 2,
                     top: y + h / 2,
                     target: this,
                     base: 'left-top',
-                    cursor: this.rotate ? 'pointer' : 'se-resize',
+                    cursorHandler: scaleCursor,
                     mousemoveHandler: calcScaleAll,
                     ...commonConfig
                 }),
                 new Control({
+                    x: 0,
+                    y: h / 2,
                     left: x,
                     top: y + h / 2,
                     target: this,
                     base: 'center-top',
-                    cursor: this.rotate ? 'pointer' : 'n-resize',
+                    cursorHandler: scaleCursor,
                     mousemoveHandler: calcScaleY,
                     ...commonConfig
                 }),
                 new Control({
+                    x: - w / 2,
+                    y: h / 2,
                     left: x - w / 2,
                     top: y + h / 2,
                     target: this,
                     base: 'right-top',
-                    cursor: this.rotate ? 'pointer' : 'ne-resize',
+                    cursorHandler: scaleCursor,
                     mousemoveHandler: calcScaleAll,
                     ...commonConfig
                 }),
                 new Control({
+                    x: - w / 2,
+                    y: 0,
                     left: x - w / 2,
                     top: y,
                     target: this,
                     base: 'right-center',
-                    cursor: this.rotate ? 'pointer' : 'w-resize',
+                    cursorHandler: scaleCursor,
                     mousemoveHandler: calcScaleX,
                     ...commonConfig
                 }),
@@ -119,8 +138,8 @@ export class Rect extends DrawObject{
             if (this.rotate) {
                 this.coords.push(
                     new Control({
-                        left: minX + Math.abs(w) / 2,
-                        top: (minY - 40 / mat.a),
+                        left: x,
+                        top: (minY - 40),
                         target: this,
                         base: 'center-center',
                         cursor: 'crosshair',
@@ -130,8 +149,9 @@ export class Rect extends DrawObject{
                 );
             }
         }
-        this.coords.forEach((item) => {
-            let {x, y} = rotatePoint({x: item.left, y: item.top}, objCenter, this.angle);
+        this.coords.forEach((item, index) => {
+            let pot = new Pot(item.left, item.top)
+            let {x, y} = pot.rotate(this.angle, objCenter)
             item.left = x
             item.top = y
         });

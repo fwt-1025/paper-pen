@@ -1,14 +1,14 @@
 {
-  "name": "loomjs",
-  "version": "1.0.0",
+  "name": "paper-pen",
+  "version": "0.0.4",
   "description": "",
-  "main": "loom.js",
-  "module": "dist/loom.esm.js",
+  "main": "index.js",
+  "module": "dist/paper-pen.esm.js",
   "scripts": {
     "build": "node rollup.config.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["2d", "matrix", "Rect", "Polygon",  "Line", "paper-pen", "canvas", "annotate", "paper-pen.js"],
   "author": "fwt-1025",
   "license": "ISC",
   "devDependencies": {

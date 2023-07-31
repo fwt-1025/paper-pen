@@ -1,6 +1,6 @@
 import { DrawObject } from "./DrawObject";
-import { Control } from "./Controls";
-import { calcPolygon, calcPolygonCenter } from '../utils/editObject';
+import { Control } from "../control/Controls";
+import { editPolygon, editPolygonCenter } from '../utils/editObject';
 
 export class Polygon extends DrawObject{
     centerControlPoints = []
@@ -66,7 +66,7 @@ export class Polygon extends DrawObject{
                 target: this,
                 cursor: "pointer",
                 index,
-                mousemoveHandler: calcPolygon,
+                mousemoveHandler: editPolygon,
                 ...this.getCommonConfig()
             })
         })
@@ -87,7 +87,7 @@ export class Polygon extends DrawObject{
                 cornerSize: this.centerPointsSize,
                 cornerBorderColor: this.centerPointsStroke,
                 cornerColor: this.centerPointsFill,
-                mousedownHandler: calcPolygonCenter
+                mousedownHandler: editPolygonCenter
             })
         })
     }

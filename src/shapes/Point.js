@@ -1,5 +1,5 @@
 import { DrawObject } from "./DrawObject";
-import { Control } from "./Controls";
+import { Control } from "../control/Controls";
 import { moveObject } from '../utils/editObject'
 
 export class Point extends DrawObject{
@@ -17,10 +17,10 @@ export class Point extends DrawObject{
             this.strokeOrFill(ctx)
         ctx.restore()
     }
-    setCoords(ctx) {
+    setCoords() {
         this.coords = [new Control({
-            left: this.left,
-            top: this.top,
+            left: this.originX,
+            top: this.originY,
             target: this,
             cursor: 'pointer',
             mousemoveHandler: moveObject

@@ -1,6 +1,7 @@
 import {DrawObject} from "./DrawObject"
-import { Control } from "./Controls"
-import { calcScaleX, calcScaleY, calcScaleAll, rotateObject } from "../utils/editObject";
+import { Control } from "../control/Controls"
+import { calcScaleX, calcScaleY, calcScaleAll } from "../control/scale";
+import { rotateObject } from '../control/rotate'
 
 /**
  * 

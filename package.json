@@ -1,16 +1,24 @@
 {
   "name": "paper-pen",
-  "version": "0.0.4",
-  "description": "",
+  "version": "0.0.5",
+  "description": "A JavaScript library for annotations",
   "main": "index.js",
   "module": "dist/paper-pen.esm.js",
   "scripts": {
     "build": "node rollup.config.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fwt-1025/paper-pen.git"
+  },
   "keywords": ["2d", "matrix", "Rect", "Polygon",  "Line", "paper-pen", "canvas", "annotate", "paper-pen.js"],
   "author": "fwt-1025",
-  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fwt-1025/paper-pen/issues"
+  },
+  "homepage": "https://github.com/fwt-1025/paper-pen#readme",
+  "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.22.9",
     "@babel/preset-env": "^7.22.9",

@@ -1,15 +1,22 @@
 ### paper-pen.js
 
-> canvas annotation
+> canvas、 annotation、annotate、Rect、Polygon、Matrix.
 
 - Quick start
 
 > npm i paper-pen --save
 
+> `<script src='https://unpkg.com/paper-pen@0.0.5/dist/paper-pen.esm.min.js'></script>`
+
+[online example](https://fwt-1025.github.io/paper-pen/test/)
+
 ```js
+    //demo.html
+    <canvas id='c'></canvas>
+    // demo.js
     import { Canvas } from 'paper-pen'
     let paperPen = new Canvas(
-        el: document.querySelector('#c'), // id 、class string (#c, .c)| HTMLCanvasElement
+        '#c', // id 、class string (#c, .c)| HTMLCanvasElement
         { // options
             width: 1600, // canvas width
             height: 700, // canvas height
@@ -23,6 +30,7 @@
         // do anything
     })
 ```
+
 
 > Now you hava a `1600 * 700` canvas and set a background image for it.
 

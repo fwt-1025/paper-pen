@@ -1,5 +1,5 @@
 import { getRandomId } from '../utils/getRandomId'
-import Event from '../utils/events';
+import Event from '../event/events';
 export class DrawObject extends Event {
     type = "object";
     scaleX = 1;

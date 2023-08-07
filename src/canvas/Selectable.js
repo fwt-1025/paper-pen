@@ -1,4 +1,4 @@
-import Event from "../utils/events.js";
+import Event from "../event/events.js";
 import { Matrix } from "../utils/matrix.js";
 
 const defaultTransfromMatrix = {
@@ -47,6 +47,13 @@ export class Selectable extends Event {
         w: 0,
         h: 0,
     };
+    preventDefault = true
+    selection = true // can or not renderTop
+    skipFindTarget = false // 跳过查找当前元素
+    wheel = {
+        scale: false // 是否开启鼠标滚轮缩放
+    }
+    rightMove = false // 是否开启鼠标右键拖动画布
     constructor(el, options) {
         super();
         this.setOptions(options);
@@ -60,6 +67,7 @@ export class Selectable extends Event {
             // For each key in options object...
             this[key] = options[key];
         }
+        console.log(this,this.rightMove)
         // if (this.background) {
         //     if (typeof this.background === 'string') {
         //         this.backgroundImage.src = this.background
@@ -328,6 +336,73 @@ export class Selectable extends Event {
         // this.canvasContainer?.removeChild(this.upperCanvas)
         // this.canvasContainer?.removeChild(this.lowerCanvas)
         // this.canvasContainer?.replaceChild(this.lowerCanvas, this.canvasContainer)
+    }
+    /**
+     * 
+     * @returns {imgData: ImageData, imgUrl: base64 string}
+     */
+    toDataUrl() {
+        // this.upperCanvas.toDataUrl()
+        let canvas = document.createElement('canvas')
+        canvas.width = this.lowerCanvas.width
+        canvas.height = this.lowerCanvas.height
+        let ctx = canvas.getContext('2d')
+        ctx.setTransform(this.transformMatrix.clone())
+        this.clearContext(ctx);
+        ctx.save();
+        this._objects.forEach((item) => {
+            item.render(ctx, this);
+        });
+        ctx.restore();
+        let imgBase64Url = canvas.toDataURL()
+        let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        return {
+            imgData,
+            imgUrl: imgBase64Url
+        }
+    }
+    /**
+     * 
+     * @param {*} fillList [{r: number, g: number, b: number, a: number, fill: number}, ...]
+     * @returns new Promise() ImageBitmap
+     */
+    toBitMap(fillList) {
+        let {imgData} = this.toDataUrl()
+        let data = imgData.data
+        if (fillList) {
+            let fillListArr = fillList.map(item => {
+                return item.r + '-' + item.g + '-' + item.b
+            })
+            for (let i = 0; i < data.length; i+=4) {
+                let index = fillListArr.findIndex(ite => ite === data[i] + '-' + data[i+1] + '-' + data[i+2])
+                if (~index) {
+                    data[i] = fillList[index].fill
+                    data[i+1] = 0
+                    data[i+2] = 0
+                    data[i+3] = 255
+                } else {
+                    data[i] = 255
+                    data[i+1] = 255
+                    data[i+2] = 255
+                    data[i+3] = 255
+                }
+            }
+        } else {
+            for (let i = 0; i < data.length; i+=4) {
+                if (data[i] || data[i+1] || data[i+2] || data[i+3]) {
+                    data[i] = 0
+                    data[i+1] = 0
+                    data[i+2] = 0
+                    data[i+3] = 255
+                } else {
+                    data[i] = 255
+                    data[i+1] = 255
+                    data[i+2] = 255
+                    data[i+3] = 255
+                }
+            }
+        }
+        return createImageBitmap(imgData, 0, 0, this.upperCanvas.width, this.upperCanvas.height)
     }
     toObjects() {
         return {

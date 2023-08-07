@@ -399,6 +399,7 @@
   var Selectable = /*#__PURE__*/function (_Event) {
     _inherits(Selectable, _Event);
     var _super = _createSuper(Selectable);
+    // 是否开启鼠标右键拖动画布
     function Selectable(el, options) {
       var _this;
       _classCallCheck(this, Selectable);
@@ -432,6 +433,15 @@
         w: 0,
         h: 0
       });
+      _defineProperty(_assertThisInitialized(_this), "preventDefault", true);
+      _defineProperty(_assertThisInitialized(_this), "selection", true);
+      // can or not renderTop
+      _defineProperty(_assertThisInitialized(_this), "skipFindTarget", false);
+      // 跳过查找当前元素
+      _defineProperty(_assertThisInitialized(_this), "wheel", {
+        scale: false // 是否开启鼠标滚轮缩放
+      });
+      _defineProperty(_assertThisInitialized(_this), "rightMove", false);
       _this.setOptions(options);
       _this.el = el;
       _this.initLowerCanvas();
@@ -446,6 +456,7 @@
           // For each key in options object...
           this[key] = options[key];
         }
+        console.log(this, this.rightMove);
         // if (this.background) {
         //     if (typeof this.background === 'string') {
         //         this.backgroundImage.src = this.background
@@ -779,6 +790,84 @@
         // this.canvasContainer?.removeChild(this.lowerCanvas)
         // this.canvasContainer?.replaceChild(this.lowerCanvas, this.canvasContainer)
       }
+      /**
+       * 
+       * @returns {imgData: ImageData, imgUrl: base64 string}
+       */
+    }, {
+      key: "toDataUrl",
+      value: function toDataUrl() {
+        var _this6 = this;
+        // this.upperCanvas.toDataUrl()
+        var canvas = document.createElement('canvas');
+        canvas.width = this.lowerCanvas.width;
+        canvas.height = this.lowerCanvas.height;
+        var ctx = canvas.getContext('2d');
+        ctx.setTransform(this.transformMatrix.clone());
+        this.clearContext(ctx);
+        ctx.save();
+        this._objects.forEach(function (item) {
+          item.render(ctx, _this6);
+        });
+        ctx.restore();
+        var imgBase64Url = canvas.toDataURL();
+        var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        return {
+          imgData: imgData,
+          imgUrl: imgBase64Url
+        };
+      }
+      /**
+       * 
+       * @param {*} fillList [{r: number, g: number, b: number, a: number, fill: number}, ...]
+       * @returns new Promise() ImageBitmap
+       */
+    }, {
+      key: "toBitMap",
+      value: function toBitMap(fillList) {
+        var _this$toDataUrl = this.toDataUrl(),
+          imgData = _this$toDataUrl.imgData;
+        var data = imgData.data;
+        if (fillList) {
+          var fillListArr = fillList.map(function (item) {
+            return item.r + '-' + item.g + '-' + item.b;
+          });
+          var _loop = function _loop(i) {
+            var index = fillListArr.findIndex(function (ite) {
+              return ite === data[i] + '-' + data[i + 1] + '-' + data[i + 2];
+            });
+            if (~index) {
+              data[i] = fillList[index].fill;
+              data[i + 1] = 0;
+              data[i + 2] = 0;
+              data[i + 3] = 255;
+            } else {
+              data[i] = 255;
+              data[i + 1] = 255;
+              data[i + 2] = 255;
+              data[i + 3] = 255;
+            }
+          };
+          for (var i = 0; i < data.length; i += 4) {
+            _loop(i);
+          }
+        } else {
+          for (var _i = 0; _i < data.length; _i += 4) {
+            if (data[_i] || data[_i + 1] || data[_i + 2] || data[_i + 3]) {
+              data[_i] = 0;
+              data[_i + 1] = 0;
+              data[_i + 2] = 0;
+              data[_i + 3] = 255;
+            } else {
+              data[_i] = 255;
+              data[_i + 1] = 255;
+              data[_i + 2] = 255;
+              data[_i + 3] = 255;
+            }
+          }
+        }
+        return createImageBitmap(imgData, 0, 0, this.upperCanvas.width, this.upperCanvas.height);
+      }
     }, {
       key: "toObjects",
       value: function toObjects() {
@@ -869,7 +958,7 @@
   var Canvas = /*#__PURE__*/function (_Selectable) {
     _inherits(Canvas, _Selectable);
     var _super = _createSuper(Canvas);
-    // 跳过查找当前元素
+    // renderTop
     // background = '' // image  canvas  video
     function Canvas(el, options) {
       var _this;
@@ -883,12 +972,7 @@
       // the position of mousedown
       _defineProperty(_assertThisInitialized(_this), "corner", null);
       // Control
-      _defineProperty(_assertThisInitialized(_this), "preventDefault", true);
       _defineProperty(_assertThisInitialized(_this), "_groupSelector", null);
-      // renderTop
-      _defineProperty(_assertThisInitialized(_this), "selection", true);
-      // can or not renderTop
-      _defineProperty(_assertThisInitialized(_this), "skipFindTarget", false);
       _this.initBindEvents();
       _this.initEvents();
       return _this;
@@ -918,9 +1002,27 @@
     }, {
       key: "handleMouseDown",
       value: function handleMouseDown(evt) {
+        var _this3 = this;
         var optEvent = this.getMousePosInfo(evt);
         if (evt.button === 2) {
           this.emit("mouse:down", optEvent);
+          if (this.rightMove) {
+            var pointer = this.getPointer(optEvent);
+            var moveCanvas = function moveCanvas(opt) {
+              var rightEvent = _this3.getMousePosInfo(opt);
+              var me = _this3.getPointer(rightEvent);
+              var x = me.x - pointer.x;
+              var y = me.y - pointer.y;
+              _this3.transformMatrix.translate(x, y);
+              _this3.requestRenderAll();
+            };
+            var removeMoveCanvas = function removeMoveCanvas() {
+              removeEvent(_this3.upperCanvas, "mousemove", moveCanvas);
+              removeEvent(_this3.upperCanvas, "mouseup", removeMoveCanvas);
+            };
+            addEvent(this.upperCanvas, "mousemove", moveCanvas);
+            addEvent(this.upperCanvas, "mouseup", removeMoveCanvas);
+          }
           return;
         }
         var p = this.getPointer(optEvent);
@@ -1053,8 +1155,18 @@
     }, {
       key: "handleMouseWheel",
       value: function handleMouseWheel(evt) {
+        var _this$wheel;
         var optEvent = this.getMousePosInfo(evt);
         this.emit("mouse:wheel", optEvent);
+        if ((_this$wheel = this.wheel) !== null && _this$wheel !== void 0 && _this$wheel.scale) {
+          var pos = this.getPointer(optEvent);
+          var scale = optEvent.deltaY < 0 ? 1 + 0.2 : 1 - 0.2;
+          this.transformMatrix.translate(pos.x, pos.y).scaleU(scale);
+          if (this.transformMatrix.a > 40) this.transformMatrix.scaleU(40 / this.transformMatrix.a);
+          if (this.transformMatrix.a < 0.6) this.transformMatrix.scaleU(0.6 / this.transformMatrix.a);
+          this.transformMatrix.translate(-pos.x, -pos.y);
+          this.requestRenderAll();
+        }
       }
     }, {
       key: "getMousePosInfo",

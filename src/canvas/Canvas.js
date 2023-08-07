@@ -12,10 +12,7 @@ export class Canvas extends Selectable {
         y: 0,
     }; // the position of mousedown
     corner = null; // Control
-    preventDefault = true
     _groupSelector = null // renderTop
-    selection = true // can or not renderTop
-    skipFindTarget = false // 跳过查找当前元素
     // background = '' // image  canvas  video
     constructor(el, options) {
         super(el, options || {});
@@ -48,6 +45,23 @@ export class Canvas extends Selectable {
         let optEvent = this.getMousePosInfo(evt);
         if (evt.button === 2) {
             this.emit("mouse:down", optEvent);
+            if (this.rightMove) {
+                const pointer = this.getPointer(optEvent)
+                const moveCanvas = (opt) => {
+                    let rightEvent = this.getMousePosInfo(opt);
+                    let me = this.getPointer(rightEvent)
+                    let x = me.x - pointer.x
+                    let y = me.y - pointer.y
+                    this.transformMatrix.translate(x, y)
+                    this.requestRenderAll()
+                }
+                const removeMoveCanvas = () => {
+                    removeEvent(this.upperCanvas, "mousemove", moveCanvas)
+                    removeEvent(this.upperCanvas, "mouseup", removeMoveCanvas)
+                }
+                addEvent(this.upperCanvas, "mousemove", moveCanvas);
+                addEvent(this.upperCanvas, "mouseup", removeMoveCanvas)
+            }
             return
         }
         
@@ -186,6 +200,15 @@ export class Canvas extends Selectable {
     handleMouseWheel(evt) {
         let optEvent = this.getMousePosInfo(evt);
         this.emit("mouse:wheel", optEvent);
+        if (this.wheel?.scale) {
+            let pos = this.getPointer(optEvent)
+            let scale = optEvent.deltaY < 0 ? 1 + 0.2 : 1 - 0.2
+            this.transformMatrix.translate(pos.x, pos.y).scaleU(scale)
+            if (this.transformMatrix.a > 40) this.transformMatrix.scaleU(40 / this.transformMatrix.a)
+            if (this.transformMatrix.a < 0.6) this.transformMatrix.scaleU(0.6 / this.transformMatrix.a)
+            this.transformMatrix.translate(-pos.x, -pos.y)
+            this.requestRenderAll()
+        }
     }
     getMousePosInfo(evt) {
         let optEvent = {

@@ -10,6 +10,12 @@
 
 [online example](https://fwt-1025.github.io/paper-pen/test/)
 
+- features (待实现)
+    - mask
+    - group
+    - text editor
+
+- demo
 ```js
     //demo.html
     <canvas id='c'></canvas>
@@ -33,6 +39,37 @@
 
 
 > Now you hava a `1600 * 700` canvas and set a background image for it.
+
+- 是否开启滚轮缩放 (Whether to enable wheel scaling)
+
+> `wheel: {scale: true}`
+
+```js
+    import { Canvas } from 'paper-pen'
+    let canvas = new Canvas({
+        '#c',
+        {
+            wheel: {
+                scale: true
+            }
+        }
+    })
+
+```
+
+- 是否开启鼠标右键拖动画布(Do you want to enable the right mouse button to drag the canvas)
+
+> `rightMove: true`
+
+```js
+import { Canvas } from 'paper-pen'
+    let canvas = new Canvas({
+        '#c',
+        {
+            rightMove: true
+        }
+    })
+```
 
 - How to draw other shape(Rect、Polygon、Line、Point、and so on.)
 
@@ -125,17 +162,19 @@
 
 - methods
 
-| name | description| parameter |
-| :-----| :-----| :----------|
-| setBackground | set canvas background | imgUrl\|Image\|Video\|Canvas\|bitmap
-| getPointer | Obtain the coordinates of the mouse on the canvas | null
-| add | Add elements to object list | DrawObject |
-| remove | remove elements from object list | DrawObject |
-| setActiveObject | set the current object to active | DrawObject|
-| setCursor | set the cursor of canvas | css cursor |
-| resetActive | Deactivate all objects | null
-| toObjects | get all elements on the canvas | null
-| requestRenderAll | clear all Objects on the canvas, draw all objects on the canvas | null
+| name | description| parameter | return |
+| :-----| :-----| :----------| :--------- |
+| setBackground | set canvas background | imgUrl\|Image\|Video\|Canvas\|bitmap | 
+| getPointer | Obtain the coordinates of the mouse on the canvas | null | {x number,  y:number}
+| add | Add elements to object list | DrawObject | |
+| remove | remove elements from object list | DrawObject | |
+| setActiveObject | set the current object to active | DrawObject| |
+| setCursor | set the cursor of canvas | css cursor | |
+| resetActive | Deactivate all objects | null| |
+| toJSON | get all elements on the canvas | null | [{},{}] |
+| requestRenderAll | clear all Objects on the canvas, draw all objects on the canvas | null |
+| toDataUrl | 将画布转换为图片（Convert Canvas to Pictures）| null | {imgData, imgUrl}
+| toBitMap | 将画布转换为单通道位图（Convert the canvas to a single channel bitmap）| [{r:number,g: number,b:number,a?:number},...]\|null | new Promise (ImageBitmap)
 
 - eventListener
 

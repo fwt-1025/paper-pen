@@ -1,0 +1,13 @@
+- version-0.0.6
+   1、内置滚轮缩放、鼠标右键拖动画布的功能；
+   2、新增两个api方法，toDataUrl（将canvas转为图片）、toBitMap（将canvas转为单通道的位图）；
+   ```js
+    let canvas = new Canvas('#c', {
+        wheel: {scale: true},
+        rightMove: true
+    })
+    canvas.toDataUrl()
+    canvas.toBitMap().then(res => {
+        // res 是ImageBitmap。
+    })
+   ```

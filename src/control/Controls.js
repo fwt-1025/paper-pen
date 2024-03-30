@@ -9,6 +9,7 @@ export class Control{
     center = null
     cursor = 'move'
     isEditing = false
+    display = true
     // target = null
     mousemoveHandler = () => null
     mousedownHandler = () => null

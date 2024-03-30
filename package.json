@@ -1,6 +1,6 @@
 {
   "name": "paper-pen",
-  "version": "0.0.6",
+  "version": "0.0.7-release",
   "description": "A JavaScript library for annotations",
   "main": "index.js",
   "module": "dist/paper-pen.esm.js",

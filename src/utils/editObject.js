@@ -40,26 +40,22 @@ export function getDefaultParams (target, pointer, defaultTransform, mousedownPo
     }
 }
 
-export const editPolygon = (target, loomObj, pos, defaultTransform, mousedownPos) => {
-    target.left = pos.x
-    target.top = pos.y
-    loomObj.points[target.index] = target.getCoords()
-}
+// export const editPolygon = (target, loomObj, pos, defaultTransform, mousedownPos) => {
+//     target.left = pos.x
+//     target.top = pos.y
+//     loomObj.points[target.index] = target.getCoords()
+// }
 
-export const editPolygonCenter = (target, loomObj, pos) => {
-    loomObj.points.splice(
-        target.index + 1,
-        0,
-        target.getCoords()
-    )
-    // this.activeShape.points.splice(
-    //     this.editIndex[1] + 1,
-    //     0,
-    //     this.activeShape.centerPoints[this.editIndex[1]]
-    // );
-}
+// export const editPolygonCenter = (target, loomObj, pos) => {
+//     loomObj.points.splice(
+//         target.index + 1,
+//         0,
+//         target.getCoords()
+//     )
+// }
 
 export const moveObject = (target, loomObj, pos, defaultTransform, mousedownPos) => {
+    console.log(target)
     if (loomObj.lockMove) return
     if (!cache.startPos) {
         cache.startPos = mousedownPos

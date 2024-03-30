@@ -4,15 +4,60 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-    <canvas id="c"></canvas>
+    <div class="header">
+        <ul class="btn">
+            <li>选择</li>
+            <li>矩形</li>
+            <li>多边形</li>
+            <li>线</li>
+            <li>点</li>
+            <li>获取当前画布数据</li>
+            <li>转为二值图</li>
+            <li>重置画布</li>
+        </ul>
+    </div>
+    <div class="tips"></div>
+    <div class="canvas-box">
+        <canvas id="c"></canvas>
+        <canvas id="c1"></canvas>
+    </div>
+    <pre class="canvasJson"></pre>
     <script type="module">
-        import { Canvas, Rect, Polygon } from '../dist/paper-pen.esm.js'
+        import { Canvas, Rect, Polygon, Text, Line, Dot } from '../dist/paper-pen.esm.js'
+        import drawRect from './drawRect.js'
+        import drawPolygon from './drawPolygon.js'
+        import drawLine from './drawLine.js'
+        import drawDot from './drawDot.js'
+        let status = 'select'
+        let shape = ''
+        let btn = document.querySelector('.btn')
+        let tips = document.querySelector('.tips')
+        let canvasJson = document.querySelector('.canvasJson')
         let c = new Canvas('#c', {
             width: 1600,
             height: 700,
-            skipFindTarget: false
+            skipFindTarget: false,
+            wheel: {
+                scale: true,
+                scroll: true
+            },
+            rightMove: true
+        })
+        c.setCanvasStyles(c.upperCanvas, {
+            border: '1px solid #000'
+        })
+        let c1 = new Canvas('#c1', {
+            width: 1600,
+            height: 700,
+            skipFindTarget: false,
+            wheel: {
+                scale: true,
+                scroll: true
+            },
+            rightMove: true
         })
         let img = new Image()
         img.src = './500540b041a30ad044b5a19344f1b24f.jpg'
@@ -26,7 +71,15 @@
                 fill: '#00f',
                 rotate: true
             })
-            c.add(rect)
+            // console.log(rect)
+            let text = new Text({
+                text: '矩形',
+                fill: '#fff',
+                fontSize: 18,
+                textX: rect.left,
+                textY: rect.top
+            })
+            
             let poly = new Polygon({
                 points: [
                     {x: 300, y:300},
@@ -39,34 +92,57 @@
                 fill: '#0f0',
                 opacity: .7
             })
-            c.add(poly)
+            c.add(poly, rect, text)
             console.log(c.toObjects())
         }
-        c.on('mouse:down', opt => {
-            let ms = c.getPointer(opt)
-            if (opt.button !== 2) {
-                return
+        function offAllEvents() {
+            c.offAll()
+        }
+        btn.addEventListener('mousedown', e => {
+            tips.innerHTML = ''
+            switch(e.target.innerText) {
+                case '选择':
+                    status = 'select'
+                    c.offAll('mouse:down')
+                    c.offAll('mouse:move')
+                    c.offAll('mouse:up')
+                    break
+                case '矩形':
+                    offAllEvents()
+                    drawRect(c)
+                    break
+                case '多边形':
+                    offAllEvents()
+                    drawPolygon(c)
+                    tips.innerHTML = '按空格结束绘制'
+                    break
+                case '线':
+                    offAllEvents()
+                    drawLine(c)
+                    tips.innerHTML = '按空格结束绘制'
+                    break
+                case '点':
+                    offAllEvents()
+                    drawDot(c)
+                    break
+                case '获取当前画布数据':
+                    console.log(JSON.stringify(c.toObjects()))
+                    canvasJson.innerHTML = JSON.stringify(c.toObjects(), '\r\n', 4)
+                    break;
+                case '转为二值图':
+                    let img = new Image()
+                    c.toBitMap().then(img => {
+                        c1.setBackground(img)
+                    })
+                    break
+                case '重置画布':
+                    c.resetTransformMatrix()
+                    break
+                default:
+                    status = 'select'
+                    shape = ''
+                    tips.innerHTML = ''
             }
-            const moveCanvas = (e) => {
-                let me = c.getPointer(e)
-                let x = me.x - ms.x
-                let y = me.y - ms.y
-                c.transformMatrix.translate(x, y)
-                c.requestRenderAll()
-            }
-            c.on('mouse:move', moveCanvas)
-            c.on('mouse:up', e => {
-                c.off('mouse:move', moveCanvas)
-            })
-        })
-        c.on('mouse:wheel', opt => {
-            let pos = c.getPointer(opt)
-            let scale = opt.deltaY < 0 ? 1 + 0.2 : 1 - 0.2
-            c.transformMatrix.translate(pos.x, pos.y).scaleU(scale)
-            if (c.transformMatrix.a > 40) c.transformMatrix.scaleU(40 / c.transformMatrix.a)
-            if (c.transformMatrix.a < 0.6) c.transformMatrix.scaleU(0.6 / c.transformMatrix.a)
-            c.transformMatrix.translate(-pos.x, -pos.y)
-            c.requestRenderAll()
         })
     </script>
 </body>

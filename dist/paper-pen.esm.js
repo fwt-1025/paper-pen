@@ -227,9 +227,21 @@ var Event = /*#__PURE__*/function () {
   }, {
     key: "off",
     value: function off(eventName, fn) {
+      if (!this.eventList[eventName]) {
+        return;
+      }
       this.eventList[eventName] = this.eventList[eventName].filter(function (item) {
         return item !== fn;
       });
+    }
+  }, {
+    key: "offAll",
+    value: function offAll(eventName) {
+      if (eventName) {
+        delete this.eventList[eventName];
+        return;
+      }
+      this.eventList = {};
     }
   }]);
   return Event;
@@ -371,6 +383,18 @@ var Matrix = /*#__PURE__*/function () {
     value: function clone() {
       return new Matrix(this.a, this.b, this.c, this.d, this.e, this.f);
     }
+    /**
+     * reset the matrix
+     * 1 0 0
+     * 0 1 0
+     * 0 0 1
+     * @returns new Matrix
+     */
+  }, {
+    key: "reset",
+    value: function reset() {
+      return new Matrix();
+    }
   }]);
   return Matrix;
 }();
@@ -390,10 +414,10 @@ var defaultTransfromMatrix = {
   originX: "left",
   originY: "top"
 };
+var id = 0;
 var Selectable = /*#__PURE__*/function (_Event) {
   _inherits(Selectable, _Event);
   var _super = _createSuper(Selectable);
-  // 是否开启鼠标右键拖动画布
   function Selectable(el, options) {
     var _this;
     _classCallCheck(this, Selectable);
@@ -405,6 +429,8 @@ var Selectable = /*#__PURE__*/function (_Event) {
     _defineProperty(_assertThisInitialized(_this), "lowerContext", null);
     _defineProperty(_assertThisInitialized(_this), "upperCanvas", null);
     _defineProperty(_assertThisInitialized(_this), "canvasContainer", null);
+    _defineProperty(_assertThisInitialized(_this), "cacheCanvas", null);
+    _defineProperty(_assertThisInitialized(_this), "cacheCtx", null);
     _defineProperty(_assertThisInitialized(_this), "transform", [1, 0, 0, 1, 0, 0]);
     _defineProperty(_assertThisInitialized(_this), "transformMatrix", new Matrix());
     _defineProperty(_assertThisInitialized(_this), "defaultTransform", defaultTransfromMatrix);
@@ -417,8 +443,11 @@ var Selectable = /*#__PURE__*/function (_Event) {
     _defineProperty(_assertThisInitialized(_this), "selectionOpacity", 0.3);
     _defineProperty(_assertThisInitialized(_this), "background", "");
     _defineProperty(_assertThisInitialized(_this), "backgroundImage", new Image());
-    _defineProperty(_assertThisInitialized(_this), "baseWidth", false);
-    _defineProperty(_assertThisInitialized(_this), "baseHeight", true);
+    _defineProperty(_assertThisInitialized(_this), "mask", false);
+    _defineProperty(_assertThisInitialized(_this), "maskCanvas", null);
+    _defineProperty(_assertThisInitialized(_this), "maskContext", null);
+    _defineProperty(_assertThisInitialized(_this), "imageFillMode", "contain");
+    // 'contain' (baseheight) | 'cover' (default basewidth)
     _defineProperty(_assertThisInitialized(_this), "ratio", {
       x: 1,
       y: 1
@@ -433,14 +462,27 @@ var Selectable = /*#__PURE__*/function (_Event) {
     _defineProperty(_assertThisInitialized(_this), "skipFindTarget", false);
     // 跳过查找当前元素
     _defineProperty(_assertThisInitialized(_this), "wheel", {
-      scale: false // 是否开启鼠标滚轮缩放
+      scale: false,
+      // 是否开启鼠标滚轮缩放
+      max: 40,
+      min: 0.6,
+      scroll: false // 缩放时是否禁用浏览器滚动功能。
     });
     _defineProperty(_assertThisInitialized(_this), "rightMove", false);
+    // 是否开启鼠标右键拖动画布
+    _defineProperty(_assertThisInitialized(_this), "createCanvas", []);
+    _defineProperty(_assertThisInitialized(_this), "canvasList", []);
+    _defineProperty(_assertThisInitialized(_this), "contextList", []);
     _this.setOptions(options);
     _this.el = el;
+    id++;
     _this.initLowerCanvas();
     _this.initCanvasContainer();
     _this.initUpperCanvas();
+    _this.createCanvas.length && _this.createCanvasElement();
+    if (_this.mask && _this.maskCanvas) _this.initMaskCanvas();
+    _this.cacheCanvas = document.createElement('canvas');
+    _this.cacheCtx = _this.cacheCanvas.getContext('2d');
     return _this;
   }
   _createClass(Selectable, [{
@@ -450,7 +492,6 @@ var Selectable = /*#__PURE__*/function (_Event) {
         // For each key in options object...
         this[key] = options[key];
       }
-      console.log(this, this.rightMove);
       // if (this.background) {
       //     if (typeof this.background === 'string') {
       //         this.backgroundImage.src = this.background
@@ -458,6 +499,20 @@ var Selectable = /*#__PURE__*/function (_Event) {
       //         this.backgroundImage = this.background
       //     }
       // }
+    }
+  }, {
+    key: "createCanvasElement",
+    value: function createCanvasElement() {
+      var _this2 = this;
+      this.createCanvas.forEach(function (item) {
+        console.log(item);
+        _this2[item.canvasName] = item.el;
+        _this2[item.contextName] = item.el.getContext('2d');
+        _this2.setCanvasStyles(_this2[item.canvasName]);
+        _this2[item.canvasName].classList.add(item.canvasName + '-' + id);
+        _this2.canvasList.push(_this2[item.canvasName]);
+        _this2.contextList.push(_this2[item.contextName]);
+      });
     }
   }, {
     key: "initLowerCanvas",
@@ -471,15 +526,28 @@ var Selectable = /*#__PURE__*/function (_Event) {
         this.lowerCanvas = this.el;
       }
       this.setCanvasStyles(this.lowerCanvas);
-      this.lowerCanvas.classList.add("lower-canvas");
+      this.lowerCanvas.classList.add("lower-canvas-" + id);
       this.lowerContext = this.lowerCanvas.getContext("2d"); //get 2d context from the lower-canvas element
+      this.canvasList.push(this.lowerCanvas);
+      this.contextList.push(this.lowerContext);
+    }
+  }, {
+    key: "initMaskCanvas",
+    value: function initMaskCanvas() {
+      if (this.mask && this.maskCanvas) {
+        this.setCanvasStyles(this.maskCanvas);
+        this.maskCanvas.classList.add('mask-canvas-' + id);
+        this.maskContext = this.maskCanvas.getContext('2d');
+        this.canvasList.push(this.maskCanvas);
+        this.contextList.push(this.maskContext);
+      }
     }
   }, {
     key: "initCanvasContainer",
     value: function initCanvasContainer() {
       var _this$lowerCanvas;
       this.canvasContainer = document.createElement("div");
-      this.canvasContainer.classList.add("canvas-container");
+      this.canvasContainer.classList.add("canvas-container-" + id);
       (_this$lowerCanvas = this.lowerCanvas) === null || _this$lowerCanvas === void 0 || (_this$lowerCanvas = _this$lowerCanvas.parentNode) === null || _this$lowerCanvas === void 0 ? void 0 : _this$lowerCanvas.replaceChild(this.canvasContainer, this.lowerCanvas);
       this.canvasContainer.appendChild(this.lowerCanvas);
       this.canvasContainer.style.position = "relative";
@@ -491,14 +559,19 @@ var Selectable = /*#__PURE__*/function (_Event) {
     value: function initUpperCanvas() {
       var _this$canvasContainer;
       this.upperCanvas = document.createElement("canvas");
-      this.upperCanvas.classList.add("upper-canvas");
+      this.upperCanvas.classList.add("upper-canvas-" + id);
       this.upperContext = this.upperCanvas.getContext("2d");
       this.setCanvasStyles(this.upperCanvas);
+      this.canvasList.push(this.upperCanvas);
+      this.upperCanvas.style.setProperty('z-index', id);
       (_this$canvasContainer = this.canvasContainer) === null || _this$canvasContainer === void 0 ? void 0 : _this$canvasContainer.appendChild(this.upperCanvas);
+      // this.canvasList.push(this.upperCanvas)
+      // this.contextList.push(this.upperContext)
     }
   }, {
     key: "setCanvasStyles",
     value: function setCanvasStyles(element) {
+      var customCanvasStyle = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
       var styles = {
         position: "absolute",
         top: "0px",
@@ -506,6 +579,7 @@ var Selectable = /*#__PURE__*/function (_Event) {
         width: this.width + "px",
         height: this.height + "px"
       };
+      styles = Object.assign(styles, customCanvasStyle);
       Object.entries(styles).forEach(function (_ref) {
         var _ref2 = _slicedToArray(_ref, 2),
           property = _ref2[0],
@@ -518,16 +592,16 @@ var Selectable = /*#__PURE__*/function (_Event) {
   }, {
     key: "add",
     value: function add() {
-      var _this2 = this,
+      var _this3 = this,
         _this$_objects;
       for (var _len = arguments.length, rest = new Array(_len), _key = 0; _key < _len; _key++) {
         rest[_key] = arguments[_key];
       }
       rest.forEach(function (item) {
-        item.setCoords && item.setCoords(_this2.lowerContext, _this2);
+        item.setCoords && item.setCoords(_this3.lowerContext, _this3);
       });
       (_this$_objects = this._objects).push.apply(_this$_objects, rest);
-      this.emit('obj:add');
+      this.emit("obj:add");
       this.requestRenderAll();
     }
   }, {
@@ -536,69 +610,99 @@ var Selectable = /*#__PURE__*/function (_Event) {
       this._objects = this._objects.filter(function (item) {
         return item.id !== drawObj.id;
       });
-      this.emit('obj:remove');
+      this.emit("obj:remove");
+    }
+    /**
+     * remove all objects
+     */
+  }, {
+    key: "removeAll",
+    value: function removeAll() {
+      this._objects = [];
     }
   }, {
     key: "requestRenderAll",
     value: function requestRenderAll() {
+      window.cancelAnimationFrame(this._renderAll.bind(this));
       window.requestAnimationFrame(this._renderAll.bind(this));
     }
   }, {
     key: "_renderAll",
     value: function _renderAll() {
-      var _this3 = this;
-      this.lowerContext.setTransform(this.transformMatrix.clone());
-      this.clearContext(this.lowerContext);
+      var _this4 = this;
+      this.contextList.forEach(function (ctx) {
+        ctx.setTransform(_this4.transformMatrix.clone());
+        _this4.clearContext(ctx);
+      });
       if (this.backgroundImage) {
         this.drawBackground(this.lowerContext);
       }
-      this.emit('render:before');
-      this.lowerContext.save();
+      this.emit("render:before");
       this._objects.forEach(function (item) {
-        item.render(_this3.lowerContext, _this3);
+        item.target ? item.target.save() : _this4.lowerContext.save();
+        item.render(item.target || _this4.lowerContext, _this4);
+        item.target ? item.target.restore() : _this4.lowerContext.restore();
       });
-      this.lowerContext.restore();
-      this.emit('render:after');
+      this.emit("render:after");
     }
   }, {
     key: "setBackground",
     value: function setBackground(bg, options) {
-      var _this4 = this;
+      var _this5 = this;
       if (typeof bg === "string") {
         this.backgroundImage.src = bg;
         this.backgroundImage.onload = function () {
-          _this4.pixelSize = {
-            w: _this4.backgroundImage.naturalWidth,
-            h: _this4.backgroundImage.naturalHeight
+          _this5.pixelSize = {
+            w: _this5.backgroundImage.naturalWidth,
+            h: _this5.backgroundImage.naturalHeight
           };
-          var pixel = _this4.backgroundImage.naturalWidth / _this4.backgroundImage.naturalHeight;
+          var pixel = _this5.backgroundImage.naturalWidth / _this5.backgroundImage.naturalHeight;
           // let width, height
-          if (_this4.baseWidth) {
-            _this4.width = _this4.width;
-            _this4.height = _this4.width / pixel;
-          } else if (_this4.baseHeight) {
-            _this4.width = _this4.height * pixel;
-            _this4.height = _this4.height;
+          if (_this5.imageFillMode === "cover") {
+            _this5.bgWidth = _this5.width;
+            _this5.bgHeight = _this5.width / pixel;
+          } else if (_this5.imageFillMode === "contain") {
+            _this5.bgWidth = _this5.height * pixel;
+            _this5.bgHeight = _this5.height;
           }
           if (options !== null && options !== void 0 && options.width && options !== null && options !== void 0 && options.height) {
-            _this4.width = options.width;
-            _this4.height = options.height;
+            _this5.bgWidth = options.width;
+            _this5.bgHeight = options.height;
           }
-          _this4.setCanvasStyles(_this4.lowerCanvas);
-          _this4.setCanvasStyles(_this4.upperCanvas);
-          _this4.emit('img:load', _this4);
-          _this4.requestRenderAll();
+          _this5.cacheCanvas.width = _this5.bgWidth;
+          _this5.cacheCanvas.height = _this5.bgHeight;
+          // this.setCanvasStyles(this.lowerCanvas);
+          // this.setCanvasStyles(this.upperCanvas);
+          _this5.cacheCtx.drawImage(_this5.backgroundImage, _this5.bgLeft || 0, _this5.bgTop || 0, _this5.bgWidth, _this5.bgHeight);
+          _this5.emit("img:load", _this5);
         };
+        this.requestRenderAll();
         return;
       }
       this.backgroundImage = bg;
+      var pixel = this.backgroundImage.naturalWidth ? this.backgroundImage.naturalWidth / this.backgroundImage.naturalHeight : this.backgroundImage.width ? this.backgroundImage.width / this.backgroundImage.height : 1920 / 1080;
+      // let width, height
+      if (this.imageFillMode === "cover") {
+        this.bgWidth = this.width;
+        this.bgHeight = this.width / pixel;
+      } else if (this.imageFillMode === "contain") {
+        this.bgWidth = this.height * pixel;
+        this.bgHeight = this.height;
+      }
+      if (options !== null && options !== void 0 && options.width && options !== null && options !== void 0 && options.height) {
+        this.bgWidth = options.width;
+        this.bgHeight = options.height;
+      }
+      this.cacheCanvas.width = this.bgWidth;
+      this.cacheCanvas.height = this.bgHeight;
+      this.cacheCtx.drawImage(this.backgroundImage, this.bgLeft || 0, this.bgTop || 0, this.bgWidth, this.bgHeight);
       this.requestRenderAll();
     }
   }, {
     key: "drawBackground",
     value: function drawBackground(ctx) {
       ctx.save();
-      ctx.drawImage(this.backgroundImage, 0, 0, this.width, this.height);
+      ctx.drawImage(this.cacheCanvas, this.bgLeft || 0, this.bgTop || 0, this.bgWidth, this.bgHeight);
       ctx.restore();
     }
   }, {
@@ -646,11 +750,11 @@ var Selectable = /*#__PURE__*/function (_Event) {
         a = _this$transformMatrix.a;
         _this$transformMatrix.b;
         _this$transformMatrix.c;
-        _this$transformMatrix.d;
-        var e = _this$transformMatrix.e,
+        var d = _this$transformMatrix.d,
+        e = _this$transformMatrix.e,
         f = _this$transformMatrix.f;
       x = x * a + e;
-      y = y * a + f;
+      y = y * d + f;
       // deltaX = deltaX * a + e
       // deltaY = deltaY * a + f
       if (this.selectionColor) {
@@ -690,10 +794,10 @@ var Selectable = /*#__PURE__*/function (_Event) {
   }, {
     key: "_findTarget",
     value: function _findTarget(pos, coords) {
-      var _this5 = this;
+      var _this6 = this;
       var p = pos;
       var points = coords.map(function (control) {
-        return control.getCoords(_this5.lowerContext);
+        return control.getCoords(_this6.lowerContext);
       });
       points = coords[0].target.rotate ? points.slice(0, 7) : points;
       var poly = points.map(function (p1, i) {
@@ -774,8 +878,14 @@ var Selectable = /*#__PURE__*/function (_Event) {
     key: "resetActive",
     value: function resetActive() {
       this._objects.forEach(function (item) {
-        item.set('isActive', false);
+        item.set("isActive", false);
       });
+    }
+  }, {
+    key: "resetTransformMatrix",
+    value: function resetTransformMatrix() {
+      this.transformMatrix = this.transformMatrix.reset();
+      this.requestRenderAll();
     }
   }, {
     key: "destroy",
@@ -783,25 +893,26 @@ var Selectable = /*#__PURE__*/function (_Event) {
       // this.canvasContainer?.removeChild(this.upperCanvas)
       // this.canvasContainer?.removeChild(this.lowerCanvas)
       // this.canvasContainer?.replaceChild(this.lowerCanvas, this.canvasContainer)
+      this.offAll();
     }
     /**
-     * 
+     *
      * @returns {imgData: ImageData, imgUrl: base64 string}
      */
   }, {
     key: "toDataUrl",
     value: function toDataUrl() {
-      var _this6 = this;
+      var _this7 = this;
       // this.upperCanvas.toDataUrl()
-      var canvas = document.createElement('canvas');
+      var canvas = document.createElement("canvas");
       canvas.width = this.lowerCanvas.width;
       canvas.height = this.lowerCanvas.height;
-      var ctx = canvas.getContext('2d');
+      var ctx = canvas.getContext("2d");
       ctx.setTransform(this.transformMatrix.clone());
       this.clearContext(ctx);
       ctx.save();
       this._objects.forEach(function (item) {
-        item.render(ctx, _this6);
+        item.render(ctx, _this7);
       });
       ctx.restore();
       var imgBase64Url = canvas.toDataURL();
@@ -812,7 +923,7 @@ var Selectable = /*#__PURE__*/function (_Event) {
       };
     }
     /**
-     * 
+     *
      * @param {*} fillList [{r: number, g: number, b: number, a: number, fill: number}, ...]
      * @returns new Promise() ImageBitmap
      */
@@ -824,11 +935,11 @@ var Selectable = /*#__PURE__*/function (_Event) {
       var data = imgData.data;
       if (fillList) {
         var fillListArr = fillList.map(function (item) {
-          return item.r + '-' + item.g + '-' + item.b;
+          return item.r + "-" + item.g + "-" + item.b;
         });
         var _loop = function _loop(i) {
           var index = fillListArr.findIndex(function (ite) {
-            return ite === data[i] + '-' + data[i + 1] + '-' + data[i + 2];
+            return ite === data[i] + "-" + data[i + 1] + "-" + data[i + 2];
           });
           if (~index) {
             data[i] = fillList[index].fill;
@@ -866,7 +977,46 @@ var Selectable = /*#__PURE__*/function (_Event) {
     key: "toObjects",
     value: function toObjects() {
       return {
-        objects: this._objects,
+        objects: this._objects.map(function (item) {
+          var points = item.points,
+            scaleX = item.scaleX,
+            scaleY = item.scaleY,
+            translateX = item.translateX,
+            translateY = item.translateY,
+            matrix = item.matrix,
+            transformMatrix = item.transformMatrix,
+            width = item.width,
+            height = item.height,
+            left = item.left,
+            top = item.top,
+            skewX = item.skewX,
+            skewY = item.skewY,
+            angle = item.angle,
+            type = item.type,
+            stroke = item.stroke,
+            fill = item.fill,
+            id = item.id;
+          return {
+            points: points,
+            scaleX: scaleX,
+            scaleY: scaleY,
+            translateX: translateX,
+            translateY: translateY,
+            matrix: matrix,
+            transformMatrix: transformMatrix,
+            width: width,
+            height: height,
+            left: left,
+            top: top,
+            skewX: skewX,
+            skewY: skewY,
+            angle: angle,
+            type: type,
+            stroke: stroke,
+            fill: fill,
+            id: id
+          };
+        }),
         pixelSize: this.pixelSize
       };
     }
@@ -909,21 +1059,23 @@ function getDefaultParams(target, pointer, defaultTransform, mousedownPos) {
     cachePos: cachePos
   };
 }
-var editPolygon = function editPolygon(target, loomObj, pos, defaultTransform, mousedownPos) {
-  target.left = pos.x;
-  target.top = pos.y;
-  loomObj.points[target.index] = target.getCoords();
-};
-var editPolygonCenter = function editPolygonCenter(target, loomObj, pos) {
-  loomObj.points.splice(target.index + 1, 0, target.getCoords());
-  // this.activeShape.points.splice(
-  //     this.editIndex[1] + 1,
-  //     0,
-  //     this.activeShape.centerPoints[this.editIndex[1]]
-  // );
-};
+
+// export const editPolygon = (target, loomObj, pos, defaultTransform, mousedownPos) => {
+//     target.left = pos.x
+//     target.top = pos.y
+//     loomObj.points[target.index] = target.getCoords()
+// }
+
+// export const editPolygonCenter = (target, loomObj, pos) => {
+//     loomObj.points.splice(
+//         target.index + 1,
+//         0,
+//         target.getCoords()
+//     )
+// }
 
 var moveObject = function moveObject(target, loomObj, pos, defaultTransform, mousedownPos) {
+  console.log(target);
   if (loomObj.lockMove) return;
   if (!cache.startPos) {
     cache.startPos = mousedownPos;
@@ -1019,6 +1171,7 @@ var Canvas = /*#__PURE__*/function (_Selectable) {
         }
         return;
       }
+      this.emit("mouse:down", optEvent);
       var p = this.getPointer(optEvent);
       this.mousedownPos = p;
       var target = this.getActiveObject();
@@ -1034,6 +1187,7 @@ var Canvas = /*#__PURE__*/function (_Selectable) {
         if (t && t !== target) {
           target && target.set('isActive', false);
           this.setActiveObject(t);
+          t.emit('mouse:down', optEvent);
           t.set('isActive', true);
         }
         if (!t) {
@@ -1041,7 +1195,6 @@ var Canvas = /*#__PURE__*/function (_Selectable) {
         }
         this.requestRenderAll();
       }
-      this.emit("mouse:down", optEvent);
       if (this._activeObject && !this.skipFindTarget) {
         this.objectMoving = true;
       }
@@ -1109,8 +1262,10 @@ var Canvas = /*#__PURE__*/function (_Selectable) {
         if (target) {
           this.setCursor('move');
           optEvent.target = target;
+          this.emit('obj:mouseover', target);
         } else {
           this.setCursor('default');
+          this.emit('obj:mouseout', target);
         }
       }
       this.emit("mouse:move", optEvent);
@@ -1120,6 +1275,12 @@ var Canvas = /*#__PURE__*/function (_Selectable) {
     value: function handleMouseUp(evt) {
       var optEvent = this.getMousePosInfo(evt);
       this.emit("mouse:up", optEvent);
+      if (this.corner && this.corner.isEditing && !this.skipFindTarget) {
+        this._activeObject.emit('obj:edit', this._activeObject);
+      }
+      if (this.objectMoving && this._activeObject) {
+        this._activeObject.emit('obj:move', this._activeObject);
+      }
       // let p = this.getPointer(optEvent)
       this.objectMoving = false;
       cache.startPos = null;
@@ -1149,18 +1310,32 @@ var Canvas = /*#__PURE__*/function (_Selectable) {
   }, {
     key: "handleMouseWheel",
     value: function handleMouseWheel(evt) {
-      var _this$wheel;
+      var _this$wheel, _this$wheel2;
       var optEvent = this.getMousePosInfo(evt);
-      this.emit("mouse:wheel", optEvent);
-      if ((_this$wheel = this.wheel) !== null && _this$wheel !== void 0 && _this$wheel.scale) {
+      if ((_this$wheel = this.wheel) !== null && _this$wheel !== void 0 && _this$wheel.scroll) {
+        var preventDefault = function preventDefault(e) {
+          if (e.target.tagName === 'CANVAS') {
+            e.preventDefault();
+          } else {
+            window.removeEventListener('mousewheel', preventDefault, {
+              passive: false
+            });
+          }
+        };
+        window.addEventListener('mousewheel', preventDefault, {
+          passive: false
+        });
+      }
+      if ((_this$wheel2 = this.wheel) !== null && _this$wheel2 !== void 0 && _this$wheel2.scale) {
         var pos = this.getPointer(optEvent);
         var scale = optEvent.deltaY < 0 ? 1 + 0.2 : 1 - 0.2;
         this.transformMatrix.translate(pos.x, pos.y).scaleU(scale);
-        if (this.transformMatrix.a > 40) this.transformMatrix.scaleU(40 / this.transformMatrix.a);
-        if (this.transformMatrix.a < 0.6) this.transformMatrix.scaleU(0.6 / this.transformMatrix.a);
+        if (this.transformMatrix.a > this.wheel.max) this.transformMatrix.scaleU(this.wheel.max / this.transformMatrix.a);
+        if (this.transformMatrix.a < this.wheel.min) this.transformMatrix.scaleU(this.wheel.min / this.transformMatrix.a);
         this.transformMatrix.translate(-pos.x, -pos.y);
         this.requestRenderAll();
       }
+      this.emit("mouse:wheel", optEvent);
     }
   }, {
     key: "getMousePosInfo",
@@ -1238,7 +1413,7 @@ var DrawObject = /*#__PURE__*/function (_Event) {
     var _this;
     _classCallCheck(this, DrawObject);
     _this = _super.call(this);
-    _defineProperty(_assertThisInitialized(_this), "type", "object");
+    _defineProperty(_assertThisInitialized(_this), "type", "Object");
     _defineProperty(_assertThisInitialized(_this), "scaleX", 1);
     _defineProperty(_assertThisInitialized(_this), "scaleY", 1);
     _defineProperty(_assertThisInitialized(_this), "skewX", 0.0);
@@ -1248,6 +1423,7 @@ var DrawObject = /*#__PURE__*/function (_Event) {
     _defineProperty(_assertThisInitialized(_this), "translateX", 0.0);
     _defineProperty(_assertThisInitialized(_this), "translateY", 0.0);
     _defineProperty(_assertThisInitialized(_this), "isActive", false);
+    _defineProperty(_assertThisInitialized(_this), "displayGraph", true);
     _defineProperty(_assertThisInitialized(_this), "lineCap", 'round');
     _defineProperty(_assertThisInitialized(_this), "lineJoin", 'round');
     _defineProperty(_assertThisInitialized(_this), "fill", "");
@@ -1284,6 +1460,7 @@ var DrawObject = /*#__PURE__*/function (_Event) {
       f: 0
     });
     _defineProperty(_assertThisInitialized(_this), "notNeedFindTarget", false);
+    _defineProperty(_assertThisInitialized(_this), "needControl", true);
     _defineProperty(_assertThisInitialized(_this), "lockMove", false);
     _this.setOptions(options);
     _this.id = getRandomId();
@@ -1304,6 +1481,7 @@ var DrawObject = /*#__PURE__*/function (_Event) {
   }, {
     key: "render",
     value: function render(ctx, canvas) {
+      if (!this.displayGraph) return;
       this.ratio = canvas.ratio;
       this.transformMatrix = canvas.transformMatrix;
       ctx.save();
@@ -1315,7 +1493,7 @@ var DrawObject = /*#__PURE__*/function (_Event) {
       this._render(ctx);
       ctx.restore();
       this.setCoords && this.setCoords(ctx);
-      this.isActive && this._drawControls(ctx);
+      this.isActive && this.needControl && this._drawControls(ctx);
       this.isActive && this._drawBorders();
     }
   }, {
@@ -1348,7 +1526,7 @@ var DrawObject = /*#__PURE__*/function (_Event) {
       ctx.save();
       this.coords.forEach(function (item) {
         // console.log(item)
-        item.drawControl(ctx, _this2.angle);
+        item.display && item.drawControl(ctx, _this2.angle);
       });
       ((_this$centerControlCo = this.centerControlCoords) === null || _this$centerControlCo === void 0 ? void 0 : _this$centerControlCo.length) && this.centerControlCoords.forEach(function (item) {
         item.drawControl(ctx, _this2.angle);
@@ -1388,6 +1566,35 @@ var DrawObject = /*#__PURE__*/function (_Event) {
         cornerOpacity: this.cornerOpacity
       };
     }
+  }, {
+    key: "getBoundingBox",
+    value: function getBoundingBox() {
+      if (this.type === 'Text') {
+        return;
+      }
+      if (!(0 in this.points) || !this.points) {
+        console.error('当前形状' + this.type + '没有points字段');
+        return;
+      }
+      var xArr = [];
+      var yArr = [];
+      this.points.forEach(function (_ref) {
+        var x = _ref.x,
+          y = _ref.y;
+        xArr.push(x);
+        yArr.push(y);
+      });
+      var maxX = Math.max.apply(null, xArr);
+      var maxY = Math.max.apply(null, yArr);
+      var minX = Math.min.apply(null, xArr);
+      var minY = Math.min.apply(null, yArr);
+      return {
+        x: minX,
+        y: minY,
+        w: maxX - minX,
+        h: maxY - minY
+      };
+    }
   }]);
   return DrawObject;
 }(Event);
@@ -1405,6 +1612,7 @@ var Control = /*#__PURE__*/function () {
     _defineProperty(this, "center", null);
     _defineProperty(this, "cursor", 'move');
     _defineProperty(this, "isEditing", false);
+    _defineProperty(this, "display", true);
     // target = null
     _defineProperty(this, "mousemoveHandler", function () {
       return null;
@@ -1499,7 +1707,7 @@ var Control = /*#__PURE__*/function () {
   return Control;
 }();
 
-var scaleCursor = function scaleCursor(obj, control) {
+var scaleCursor$1 = function scaleCursor(obj, control) {
   var scaleMap = ['e', 'se', 's', 'sw', 'w', 'nw', 'n', 'ne', 'e'];
   var _obj$matrix = obj.matrix,
     a = _obj$matrix.a,
@@ -1509,7 +1717,7 @@ var scaleCursor = function scaleCursor(obj, control) {
   var cursor = scaleMap[Math.round(cornerAngle % 360 / 45) % 4];
   return "".concat(cursor, "-resize");
 };
-var calcScaleX = function calcScaleX(target, loomObj, pos, defaultTransform, mousedownPos) {
+var calcScaleX$1 = function calcScaleX(target, loomObj, pos, defaultTransform, mousedownPos) {
   var _getDefaultParams = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
     width = _getDefaultParams.width,
     originX = _getDefaultParams.originX,
@@ -1528,7 +1736,7 @@ var calcScaleX = function calcScaleX(target, loomObj, pos, defaultTransform, mou
   loomObj.set('originX', newC.x);
   loomObj.set('originY', newC.y);
 };
-var calcScaleY = function calcScaleY(target, loomObj, pos, defaultTransform, mousedownPos) {
+var calcScaleY$1 = function calcScaleY(target, loomObj, pos, defaultTransform, mousedownPos) {
   var _getDefaultParams2 = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
     height = _getDefaultParams2.height,
     originX = _getDefaultParams2.originX,
@@ -1547,7 +1755,7 @@ var calcScaleY = function calcScaleY(target, loomObj, pos, defaultTransform, mou
   loomObj.set("originX", newC.x);
   loomObj.set("originY", newC.y);
 };
-var calcScaleAll = function calcScaleAll(target, loomObj, pos, defaultTransform, mousedownPos) {
+var calcScaleAll$1 = function calcScaleAll(target, loomObj, pos, defaultTransform, mousedownPos) {
   var _getDefaultParams3 = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
     width = _getDefaultParams3.width,
     height = _getDefaultParams3.height,
@@ -1589,7 +1797,7 @@ var calcScaleAll = function calcScaleAll(target, loomObj, pos, defaultTransform,
   loomObj.set("originY", newC.y);
 };
 
-var rotateObject = function rotateObject(target, loomObj, pos, defaultTransform, mousedownPos) {
+var rotateObject$1 = function rotateObject(target, loomObj, pos, defaultTransform, mousedownPos) {
   var _getDefaultParams = getDefaultParams(loomObj, pos, defaultTransform, mousedownPos),
     originX = _getDefaultParams.originX,
     originY = _getDefaultParams.originY,
@@ -1612,17 +1820,17 @@ var rotateObject = function rotateObject(target, loomObj, pos, defaultTransform,
 };
 
 /**
- * class Pot
+ * class Point
  * 点坐标的计算
  * author fwt-1025
  */
-var Pot = /*#__PURE__*/function () {
-  function Pot(x, y) {
-    _classCallCheck(this, Pot);
+var Point$1 = /*#__PURE__*/function () {
+  function Point(x, y) {
+    _classCallCheck(this, Point);
     this.x = x;
     this.y = y;
   }
-  _createClass(Pot, [{
+  _createClass(Point, [{
     key: "add",
     value: function add(num) {
       this.x += num;
@@ -1673,7 +1881,7 @@ var Pot = /*#__PURE__*/function () {
       // return this
     }
   }]);
-  return Pot;
+  return Point;
 }();
 
 var Rect = /*#__PURE__*/function (_DrawObject) {
@@ -1685,7 +1893,7 @@ var Rect = /*#__PURE__*/function (_DrawObject) {
     _this = _super.call(this, options);
     _defineProperty(_assertThisInitialized(_this), "textX", void 0);
     _defineProperty(_assertThisInitialized(_this), "textY", void 0);
-    _this.type = 'rect';
+    _this.type = "Rect";
     return _this;
   }
   _createClass(Rect, [{
@@ -1708,7 +1916,7 @@ var Rect = /*#__PURE__*/function (_DrawObject) {
     }
   }, {
     key: "setCoords",
-    value: function setCoords(ctx) {
+    value: function setCoords() {
       var _this2 = this;
       var w = this.width * this.scaleX,
         h = this.height * this.scaleY,
@@ -1719,104 +1927,102 @@ var Rect = /*#__PURE__*/function (_DrawObject) {
         y: this.originY
       };
       var commonConfig = this.getCommonConfig();
-      if (this.type === "rect") {
-        this.coords = [new Control(_objectSpread2({
-          x: -w / 2,
-          y: -h / 2,
-          left: x - w / 2,
-          top: y - h / 2,
-          target: this,
-          base: 'right-bottom',
-          cursorHandler: scaleCursor,
-          mousemoveHandler: calcScaleAll
-        }, commonConfig)), new Control(_objectSpread2({
-          x: 0,
-          y: -h / 2,
+      this.coords = [new Control(_objectSpread2({
+        x: -w / 2,
+        y: -h / 2,
+        left: x - w / 2,
+        top: y - h / 2,
+        target: this,
+        base: "right-bottom",
+        cursorHandler: scaleCursor$1,
+        mousemoveHandler: calcScaleAll$1
+      }, commonConfig)), new Control(_objectSpread2({
+        x: 0,
+        y: -h / 2,
+        left: x,
+        top: y - h / 2,
+        target: this,
+        base: "center-bottom",
+        cursorHandler: scaleCursor$1,
+        mousemoveHandler: calcScaleY$1
+      }, commonConfig)), new Control(_objectSpread2({
+        x: w / 2,
+        y: -h / 2,
+        left: x + w / 2,
+        top: y - h / 2,
+        target: this,
+        base: "left-bottom",
+        cursorHandler: scaleCursor$1,
+        mousemoveHandler: calcScaleAll$1
+      }, commonConfig)), new Control(_objectSpread2({
+        x: w / 2,
+        y: 0,
+        left: x + w / 2,
+        top: y,
+        target: this,
+        base: "left-center",
+        cursorHandler: scaleCursor$1,
+        mousemoveHandler: calcScaleX$1
+      }, commonConfig)), new Control(_objectSpread2({
+        x: w / 2,
+        y: h / 2,
+        left: x + w / 2,
+        top: y + h / 2,
+        target: this,
+        base: "left-top",
+        cursorHandler: scaleCursor$1,
+        mousemoveHandler: calcScaleAll$1
+      }, commonConfig)), new Control(_objectSpread2({
+        x: 0,
+        y: h / 2,
+        left: x,
+        top: y + h / 2,
+        target: this,
+        base: "center-top",
+        cursorHandler: scaleCursor$1,
+        mousemoveHandler: calcScaleY$1
+      }, commonConfig)), new Control(_objectSpread2({
+        x: -w / 2,
+        y: h / 2,
+        left: x - w / 2,
+        top: y + h / 2,
+        target: this,
+        base: "right-top",
+        cursorHandler: scaleCursor$1,
+        mousemoveHandler: calcScaleAll$1
+      }, commonConfig)), new Control(_objectSpread2({
+        x: -w / 2,
+        y: 0,
+        left: x - w / 2,
+        top: y,
+        target: this,
+        base: "right-center",
+        cursorHandler: scaleCursor$1,
+        mousemoveHandler: calcScaleX$1
+      }, commonConfig))];
+      var coords = this.coords.map(function (item) {
+        return item.getCoords();
+      });
+      var minX = Math.min.apply(Math, _toConsumableArray(coords.map(function (item) {
+        return item.x;
+      })));
+      var minY = Math.min.apply(Math, _toConsumableArray(coords.map(function (item) {
+        return item.y;
+      })));
+      this.textX = minX;
+      this.textY = minY;
+      if (this.rotate) {
+        this.coords.push(new Control(_objectSpread2({
           left: x,
-          top: y - h / 2,
+          top: minY - 40,
           target: this,
-          base: 'center-bottom',
-          cursorHandler: scaleCursor,
-          mousemoveHandler: calcScaleY
-        }, commonConfig)), new Control(_objectSpread2({
-          x: w / 2,
-          y: -h / 2,
-          left: x + w / 2,
-          top: y - h / 2,
-          target: this,
-          base: 'left-bottom',
-          cursorHandler: scaleCursor,
-          mousemoveHandler: calcScaleAll
-        }, commonConfig)), new Control(_objectSpread2({
-          x: w / 2,
-          y: 0,
-          left: x + w / 2,
-          top: y,
-          target: this,
-          base: 'left-center',
-          cursorHandler: scaleCursor,
-          mousemoveHandler: calcScaleX
-        }, commonConfig)), new Control(_objectSpread2({
-          x: w / 2,
-          y: h / 2,
-          left: x + w / 2,
-          top: y + h / 2,
-          target: this,
-          base: 'left-top',
-          cursorHandler: scaleCursor,
-          mousemoveHandler: calcScaleAll
-        }, commonConfig)), new Control(_objectSpread2({
-          x: 0,
-          y: h / 2,
-          left: x,
-          top: y + h / 2,
-          target: this,
-          base: 'center-top',
-          cursorHandler: scaleCursor,
-          mousemoveHandler: calcScaleY
-        }, commonConfig)), new Control(_objectSpread2({
-          x: -w / 2,
-          y: h / 2,
-          left: x - w / 2,
-          top: y + h / 2,
-          target: this,
-          base: 'right-top',
-          cursorHandler: scaleCursor,
-          mousemoveHandler: calcScaleAll
-        }, commonConfig)), new Control(_objectSpread2({
-          x: -w / 2,
-          y: 0,
-          left: x - w / 2,
-          top: y,
-          target: this,
-          base: 'right-center',
-          cursorHandler: scaleCursor,
-          mousemoveHandler: calcScaleX
-        }, commonConfig))];
-        var coords = this.coords.map(function (item) {
-          return item.getCoords();
-        });
-        var minX = Math.min.apply(Math, _toConsumableArray(coords.map(function (item) {
-          return item.x;
-        })));
-        var minY = Math.min.apply(Math, _toConsumableArray(coords.map(function (item) {
-          return item.y;
-        })));
-        this.textX = minX;
-        this.textY = minY;
-        if (this.rotate) {
-          this.coords.push(new Control(_objectSpread2({
-            left: x,
-            top: minY - 40,
-            target: this,
-            base: 'center-center',
-            cursor: 'crosshair',
-            mousemoveHandler: rotateObject
-          }, commonConfig)));
-        }
+          base: "center-center",
+          cursor: "crosshair",
+          mousemoveHandler: rotateObject$1
+        }, commonConfig)));
       }
       this.coords.forEach(function (item, index) {
-        var pot = new Pot(item.left, item.top);
+        var pot = new Point$1(item.left, item.top);
         var _pot$rotate = pot.rotate(_this2.angle, objCenter),
           x = _pot$rotate.x,
           y = _pot$rotate.y;
@@ -1842,31 +2048,29 @@ var Polygon = /*#__PURE__*/function (_DrawObject) {
     _defineProperty(_assertThisInitialized(_this), "centerPointsSize", 10);
     _defineProperty(_assertThisInitialized(_this), "centerPointsStroke", '#f00');
     _defineProperty(_assertThisInitialized(_this), "centerPointsFill", '#fff');
-    _this.type = 'polygon';
+    _defineProperty(_assertThisInitialized(_this), "needArrow", false);
+    _defineProperty(_assertThisInitialized(_this), "textX", void 0);
+    _defineProperty(_assertThisInitialized(_this), "textY", void 0);
+    _this.type = 'Polygon';
     _this.setOptions(options);
     return _this;
   }
   _createClass(Polygon, [{
     key: "_render",
     value: function _render(ctx) {
-      var _this$transformMatrix = this.transformMatrix;
-        _this$transformMatrix.a;
-        _this$transformMatrix.b;
-        _this$transformMatrix.c;
-        _this$transformMatrix.d;
-        _this$transformMatrix.e;
-        _this$transformMatrix.f;
       ctx.save();
+      ctx.globalCompositeOperation = this.globalCompositeOperation || 'source-over';
       ctx.beginPath();
       ctx.strokeStyle = this.stroke || '#000';
       ctx.fillStyle = this.fill || '#000';
       this.points.forEach(function (item, index) {
         ctx[index ? 'lineTo' : 'moveTo'](item.x, item.y);
       });
+      this.type === 'Line' && this.strokeOrFill(ctx);
       ctx.closePath();
-      this.strokeOrFill(ctx);
+      this.type === 'Polygon' && this.strokeOrFill(ctx);
       ctx.restore();
-      this.drawArrow(ctx, this.points[0].x, this.points[0].y, (this.points[0].x + this.points[1].x) / 2, (this.points[0].y + this.points[1].y) / 2);
+      this.needArrow && this.drawArrow(ctx, this.points[0].x, this.points[0].y, (this.points[0].x + this.points[1].x) / 2, (this.points[0].y + this.points[1].y) / 2);
       this.needCenterControl && this.renderCenterControl(ctx);
     }
   }, {
@@ -1894,13 +2098,13 @@ var Polygon = /*#__PURE__*/function (_DrawObject) {
       // 
       // ctx.moveTo(ax, ay)
       // ctx.lineTo(bx, by)
-      var _this$transformMatrix2 = this.transformMatrix;
-        _this$transformMatrix2.a;
-        _this$transformMatrix2.b;
-        _this$transformMatrix2.c;
-        _this$transformMatrix2.d;
-        _this$transformMatrix2.e;
-        _this$transformMatrix2.f;
+      var _this$transformMatrix = this.transformMatrix;
+        _this$transformMatrix.a;
+        _this$transformMatrix.b;
+        _this$transformMatrix.c;
+        _this$transformMatrix.d;
+        _this$transformMatrix.e;
+        _this$transformMatrix.f;
       ctx.moveTo(x3, y3);
       ctx.lineTo(bx, by);
       ctx.lineTo(x4, y4);
@@ -1924,7 +2128,7 @@ var Polygon = /*#__PURE__*/function (_DrawObject) {
           target: _this2,
           cursor: "pointer",
           index: index,
-          mousemoveHandler: editPolygon
+          mousemoveHandler: _this2.editPolygon
         }, _this2.getCommonConfig()));
       });
     }
@@ -1943,6 +2147,7 @@ var Polygon = /*#__PURE__*/function (_DrawObject) {
           y: (p1.y + p2.y) / 2
         };
       });
+      this.type === 'Line' && this.centerControlPoints.pop();
       this.centerControlCoords = this.centerControlPoints.map(function (item, index) {
         return new Control({
           left: item.x,
@@ -1954,89 +2159,86 @@ var Polygon = /*#__PURE__*/function (_DrawObject) {
           cornerSize: _this3.centerPointsSize,
           cornerBorderColor: _this3.centerPointsStroke,
           cornerColor: _this3.centerPointsFill,
-          mousedownHandler: editPolygonCenter
+          mousedownHandler: _this3.editPolygonCenter
         });
       });
+    }
+  }, {
+    key: "editPolygon",
+    value: function editPolygon(target, loomObj, pos) {
+      target.left = pos.x;
+      target.top = pos.y;
+      loomObj.points[target.index] = target.getCoords();
+    }
+  }, {
+    key: "editPolygonCenter",
+    value: function editPolygonCenter(target, loomObj) {
+      loomObj.points.splice(target.index + 1, 0, target.getCoords());
     }
   }]);
   return Polygon;
 }(DrawObject);
 
-var Line = /*#__PURE__*/function (_DrawObject) {
-  _inherits(Line, _DrawObject);
+var Line = /*#__PURE__*/function (_Polygon) {
+  _inherits(Line, _Polygon);
   var _super = _createSuper(Line);
   function Line(options) {
     var _this;
     _classCallCheck(this, Line);
     _this = _super.call(this, options);
-    _defineProperty(_assertThisInitialized(_this), "centerControlPoints", []);
-    _this.type = 'line';
+    _this.type = 'Line';
     _this.setOptions(options);
     return _this;
   }
+  // _render(ctx) {
+  //     ctx.save()
+  //     ctx.beginPath()
+  //     ctx.strokeStyle = this.stroke || '#000'
+  //     ctx.fillStyle = this.fill || '#000'
+  //     this.points.forEach((item, index) => {
+  //         ctx[index ? 'lineTo' : 'moveTo'](item.x, item.y)
+  //     })
+  //     ctx.stroke()
+  //     ctx.closePath()
+  //     ctx.restore()
+  //     this.needCenterControl && this.renderCenterControl(ctx)
+  // }
+  // setCoords() {
+  //     this.coords = this.points.map((item, index) => {
+  //         return new Control({
+  //             left: item.x,
+  //             top: item.y,
+  //             target: this,
+  //             cursor: "pointer",
+  //             index,
+  //             mousemoveHandler: editPolygon,
+  //             ...this.getCommonConfig()
+  //         })
+  //     })
+  // }
+  // renderCenterControl() {
+  //     this.centerControlPoints = this.points.map((p1, i) => [p1, this.points[(i + 1) % this.points.length]]).map(([p1, p2]) => ({
+  //         x: (p1.x + p2.x) / 2,
+  //         y: (p1.y + p2.y) / 2
+  //     }))
+  //     this.centerControlPoints = this.centerControlPoints.slice(0, this.centerControlPoints.length - 1)
+  //     this.centerControlCoords = this.centerControlPoints.map((item, index) => {
+  //         return new Control({
+  //             left: item.x,
+  //             top: item.y,
+  //             target: this,
+  //             cursor: "copy",
+  //             index,
+  //             mousedownHandler: editPolygonCenter
+  //         })
+  //     })
+  // }
   _createClass(Line, [{
-    key: "_render",
-    value: function _render(ctx) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.strokeStyle = this.stroke || '#000';
-      ctx.fillStyle = this.fill || '#000';
-      this.points.forEach(function (item, index) {
-        ctx[index ? 'lineTo' : 'moveTo'](item.x, item.y);
-      });
-      ctx.stroke();
-      ctx.closePath();
-      ctx.restore();
-      this.renderCenterControl(ctx);
-    }
-  }, {
-    key: "setCoords",
-    value: function setCoords() {
-      var _this2 = this;
-      this.coords = this.points.map(function (item, index) {
-        return new Control(_objectSpread2({
-          left: item.x,
-          top: item.y,
-          target: _this2,
-          cursor: "pointer",
-          index: index,
-          mousemoveHandler: editPolygon
-        }, _this2.getCommonConfig()));
-      });
-    }
-  }, {
-    key: "renderCenterControl",
-    value: function renderCenterControl() {
-      var _this3 = this;
-      this.centerControlPoints = this.points.map(function (p1, i) {
-        return [p1, _this3.points[(i + 1) % _this3.points.length]];
-      }).map(function (_ref) {
-        var _ref2 = _slicedToArray(_ref, 2),
-          p1 = _ref2[0],
-          p2 = _ref2[1];
-        return {
-          x: (p1.x + p2.x) / 2,
-          y: (p1.y + p2.y) / 2
-        };
-      });
-      this.centerControlPoints = this.centerControlPoints.slice(0, this.centerControlPoints.length - 1);
-      this.centerControlCoords = this.centerControlPoints.map(function (item, index) {
-        return new Control({
-          left: item.x,
-          top: item.y,
-          target: _this3,
-          cursor: "copy",
-          index: index,
-          mousedownHandler: editPolygonCenter
-        });
-      });
-    }
-  }, {
     key: "isPointInPath",
     value: function isPointInPath(pos) {
-      var _this4 = this;
+      var _this2 = this;
       var newPoints = this.points.map(function (p1, i) {
-        return [p1, _this4.points[(i + 1) % _this4.points.length]];
+        return [p1, _this2.points[(i + 1) % _this2.points.length]];
       });
       for (var i = 0, len = newPoints.length; i < len; i++) {
         var p1 = newPoints[i][0];
@@ -2051,19 +2253,19 @@ var Line = /*#__PURE__*/function (_DrawObject) {
     }
   }]);
   return Line;
-}(DrawObject);
+}(Polygon);
 
-var Point = /*#__PURE__*/function (_DrawObject) {
-  _inherits(Point, _DrawObject);
-  var _super = _createSuper(Point);
-  function Point(options) {
+var Dot = /*#__PURE__*/function (_DrawObject) {
+  _inherits(Dot, _DrawObject);
+  var _super = _createSuper(Dot);
+  function Dot(options) {
     var _this;
-    _classCallCheck(this, Point);
+    _classCallCheck(this, Dot);
     _this = _super.call(this, options);
-    _this.type = 'point';
+    _this.type = 'Dot';
     return _this;
   }
-  _createClass(Point, [{
+  _createClass(Dot, [{
     key: "_render",
     value: function _render(ctx) {
       ctx.save();
@@ -2090,12 +2292,12 @@ var Point = /*#__PURE__*/function (_DrawObject) {
     key: "isPointInPath",
     value: function isPointInPath(pos) {
       var radius = this.radius / this.transformMatrix.a;
-      if (pos.x < this.left + radius && pos.y < this.top + radius && pos.x > this.left - radius && pos.y > this.top - radius) {
+      if (pos.x < this.originX + radius && pos.y < this.originY + radius && pos.x > this.originX - radius && pos.y > this.originY - radius) {
         return true;
       }
     }
   }]);
-  return Point;
+  return Dot;
 }(DrawObject);
 
 /**
@@ -2115,24 +2317,9 @@ var Arrow = /*#__PURE__*/function (_DrawObject) {
     _classCallCheck(this, Arrow);
     _this = _super.call(this, options);
     var points = options.points;
-    // this.start = start
-    // this.end = end
     _this.width = Math.abs(points[0].x - points[1].x);
     _this.height = Math.abs(points[0].y - points[1].y);
-    // let left, top
-    // if (start[0] < end[0]) {
-    //     left = start[0]
-    // } else {
-    //     left = end[0]
-    // }
-    // if (start[1] < end[1]) {
-    //     top = start[1]
-    // } else {
-    //     top = end[1]
-    // }
-    _this.type = 'arrow';
-    // this.setCoords()
-    // this.arrow = options.arrow
+    _this.type = 'Arrow';
     return _this;
   }
   _createClass(Arrow, [{
@@ -2147,20 +2334,9 @@ var Arrow = /*#__PURE__*/function (_DrawObject) {
       var _this$points$2 = this.points[1],
         bx = _this$points$2.x,
         by = _this$points$2.y; //二
-      // ax = ax * this.scaleX
-      // bx = bx * this.scaleX
-      // ay = ay * this.scaleY
-      // by = by * this.scaleY
-      // const [cx, cy] = this.arrow  //三
-      // const a = Math.sqrt((bx - cx) ** 2 + (by - cy) ** 2) // 2到3
-      // const b = Math.sqrt((cx - ax) ** 2 + (cy - ay) ** 2) // 1到3
-      // const c = Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2) // 1到2
-      // const cosB = ((c ** 2 + a ** 2 - b ** 2) / (2 * c * a)) // 得到余弦值
-      // const deg = Math.acos(cosB) * 180 / Math.PI //反余弦得到角度
       var drawArrow = function drawArrow(x1, y1, x2, y2) {
         var l = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 50;
         var θ = arguments.length > 5 ? arguments[5] : undefined;
-        // console.log('角度', θ);
         var a = Math.atan2(y2 - y1, x2 - x1);
         var x3 = x2 - l * Math.cos(a + θ * Math.PI / 180);
         var y3 = y2 - l * Math.sin(a + θ * Math.PI / 180);
@@ -2204,12 +2380,10 @@ var Arrow = /*#__PURE__*/function (_DrawObject) {
       } else {
         y = this.points[1].y + this.height / 2;
       }
-      // mat = ctx.getTransform()
       var objCenter = {
         x: x,
         y: y
       };
-      // if (this.type === "rect") {
       this.coords = [new Control({
         x: x - w / 2,
         y: y - h / 2,
@@ -2296,7 +2470,6 @@ var Arrow = /*#__PURE__*/function (_DrawObject) {
       //         })
       //     );
       // }
-      // }
       if (this.isActive) {
         ctx.beginPath();
         this.coords.forEach(function (item, index) {
@@ -2305,10 +2478,6 @@ var Arrow = /*#__PURE__*/function (_DrawObject) {
         ctx.closePath();
         ctx.stroke();
       }
-      // console.log(this.coords)
-      // this.coords.forEach((item) => {
-      //     item.setAngle(this.angle);
-      // });
     }
     // isPointInPath(e) {
 
@@ -2415,17 +2584,20 @@ var Text = /*#__PURE__*/function (_DrawObject) {
     _defineProperty(_assertThisInitialized(_this), "relationShipId", '');
     _defineProperty(_assertThisInitialized(_this), "fontSize", 20);
     _defineProperty(_assertThisInitialized(_this), "parent", null);
+    _defineProperty(_assertThisInitialized(_this), "textX", 0);
+    _defineProperty(_assertThisInitialized(_this), "textY", 0);
+    _defineProperty(_assertThisInitialized(_this), "text", '');
     _this.type = 'Text';
-    _this.fillText = options.fillText;
-    _this.fontSize = options.fontSize;
+    _this.setOptions(options);
     return _this;
   }
   _createClass(Text, [{
     key: "_render",
     value: function _render(ctx) {
+      var _this$parent, _this$parent2;
       // console.log(this.parent.coords[0].x)
       ctx.save();
-      ctx.translate(this.parent.textX, this.parent.textY);
+      ctx.translate(((_this$parent = this.parent) === null || _this$parent === void 0 ? void 0 : _this$parent.textX) || this.textX, ((_this$parent2 = this.parent) === null || _this$parent2 === void 0 ? void 0 : _this$parent2.textY) || this.textY);
       // ctx.rotate(this.parent.angle)
       var fontSize = this.fontSize / this.transformMatrix.a;
       ctx.font = "bold ".concat(fontSize, "px Alibaba_PuHuiTi_Regular");
@@ -2442,6 +2614,223 @@ var Text = /*#__PURE__*/function (_DrawObject) {
   return Text;
 }(DrawObject);
 
+// import { editPolygon, editPolygonCenter } from '../utils/editObject';
+var Mask = /*#__PURE__*/function (_DrawObject) {
+  _inherits(Mask, _DrawObject);
+  var _super = _createSuper(Mask);
+  function Mask(options) {
+    var _this;
+    _classCallCheck(this, Mask);
+    _this = _super.call(this, options);
+    _this.imgBitMap = options.imgBitMap;
+    _this.globalCompositeOperation = options.globalCompositeOperation;
+    return _this;
+  }
+  _createClass(Mask, [{
+    key: "_render",
+    value: function _render(ctx) {
+      // console.log(this)
+      ctx.globalCompositeOperation = this.globalCompositeOperation || 'source-over';
+      ctx.save();
+      ctx.strokeStyle = this.stroke || '#000';
+      ctx.fillStyle = this.fill || '#000';
+      ctx.drawImage(this.imgBitMap, this.x, this.y, this.width, this.height);
+      ctx.restore();
+    }
+  }, {
+    key: "setCoords",
+    value: function setCoords() {
+      var _this2 = this;
+      this.coords = this.points.map(function (item, index) {
+        return new Control(_objectSpread2({
+          left: item.x,
+          top: item.y,
+          target: _this2,
+          cursor: "pointer",
+          index: index
+        }, _this2.getCommonConfig()));
+      });
+    }
+  }]);
+  return Mask;
+}(DrawObject);
+
+var Image$1 = /*#__PURE__*/function (_DrawObject) {
+  _inherits(Image, _DrawObject);
+  var _super = _createSuper(Image);
+  function Image(options) {
+    _classCallCheck(this, Image);
+    return _super.call(this, options); // this.img = options.img
+    // this.imgOptions = options.imgOptions || [] // []
+  }
+  _createClass(Image, [{
+    key: "_render",
+    value: function _render(ctx) {
+      ctx.beginPath();
+      if (!this.imgOptions.length) {
+        console.error("你需要提供imgOptions参数，参数个数分别为2个 4个 8个，但是程序收到了0个");
+        return;
+      }
+
+      // console.log(this.imgUrl)
+      // this.imgUrl.onload = () => {
+      if (this.imgOptions.length === 2) {
+        var _this$imgOptions = _slicedToArray(this.imgOptions, 2),
+          sx = _this$imgOptions[0],
+          sy = _this$imgOptions[1];
+        ctx.drawImage(this.img, sx, sy);
+      } else if (this.imgOptions.length === 4) {
+        var _this$imgOptions2 = _slicedToArray(this.imgOptions, 4),
+          _sx = _this$imgOptions2[0],
+          _sy = _this$imgOptions2[1],
+          sw = _this$imgOptions2[2],
+          sh = _this$imgOptions2[3];
+        ctx.drawImage(this.img, _sx, _sy, sw, sh);
+      } else if (this.imgOptions.length === 8) {
+        var _this$imgOptions3 = _slicedToArray(this.imgOptions, 8),
+          _sx2 = _this$imgOptions3[0],
+          _sy2 = _this$imgOptions3[1],
+          _sw = _this$imgOptions3[2],
+          _sh = _this$imgOptions3[3],
+          dx = _this$imgOptions3[4],
+          dy = _this$imgOptions3[5],
+          dw = _this$imgOptions3[6],
+          dh = _this$imgOptions3[7];
+        ctx.drawImage(this.img, _sx2, _sy2, _sw, _sh, dx, dy, dw, dh);
+      }
+      // }
+
+      ctx.closePath();
+    }
+  }, {
+    key: "setCoords",
+    value: function setCoords() {
+      var _this = this;
+      var sw, sh;
+      if (this.imgOptions.length > 2) {
+        var _this$imgOptions4 = _slicedToArray(this.imgOptions, 4);
+        _this$imgOptions4[0];
+        _this$imgOptions4[1];
+        sw = _this$imgOptions4[2];
+        sh = _this$imgOptions4[3];
+      }
+      var w = sw * this.scaleX,
+        h = sh * this.scaleY,
+        x = this.originX,
+        y = this.originY;
+      var objCenter = {
+        x: this.originX,
+        y: this.originY
+      };
+      var commonConfig = this.getCommonConfig();
+      this.coords = [new Control(_objectSpread2({
+        x: -w / 2,
+        y: -h / 2,
+        left: x - w / 2,
+        top: y - h / 2,
+        target: this,
+        base: "right-bottom",
+        cursorHandler: scaleCursor,
+        mousemoveHandler: calcScaleAll
+      }, commonConfig)), new Control(_objectSpread2({
+        x: 0,
+        y: -h / 2,
+        left: x,
+        top: y - h / 2,
+        target: this,
+        base: "center-bottom",
+        cursorHandler: scaleCursor,
+        mousemoveHandler: calcScaleY
+      }, commonConfig)), new Control(_objectSpread2({
+        x: w / 2,
+        y: -h / 2,
+        left: x + w / 2,
+        top: y - h / 2,
+        target: this,
+        base: "left-bottom",
+        cursorHandler: scaleCursor,
+        mousemoveHandler: calcScaleAll
+      }, commonConfig)), new Control(_objectSpread2({
+        x: w / 2,
+        y: 0,
+        left: x + w / 2,
+        top: y,
+        target: this,
+        base: "left-center",
+        cursorHandler: scaleCursor,
+        mousemoveHandler: calcScaleX
+      }, commonConfig)), new Control(_objectSpread2({
+        x: w / 2,
+        y: h / 2,
+        left: x + w / 2,
+        top: y + h / 2,
+        target: this,
+        base: "left-top",
+        cursorHandler: scaleCursor,
+        mousemoveHandler: calcScaleAll
+      }, commonConfig)), new Control(_objectSpread2({
+        x: 0,
+        y: h / 2,
+        left: x,
+        top: y + h / 2,
+        target: this,
+        base: "center-top",
+        cursorHandler: scaleCursor,
+        mousemoveHandler: calcScaleY
+      }, commonConfig)), new Control(_objectSpread2({
+        x: -w / 2,
+        y: h / 2,
+        left: x - w / 2,
+        top: y + h / 2,
+        target: this,
+        base: "right-top",
+        cursorHandler: scaleCursor,
+        mousemoveHandler: calcScaleAll
+      }, commonConfig)), new Control(_objectSpread2({
+        x: -w / 2,
+        y: 0,
+        left: x - w / 2,
+        top: y,
+        target: this,
+        base: "right-center",
+        cursorHandler: scaleCursor,
+        mousemoveHandler: calcScaleX
+      }, commonConfig))];
+      var coords = this.coords.map(function (item) {
+        return item.getCoords();
+      });
+      var minX = Math.min.apply(Math, _toConsumableArray(coords.map(function (item) {
+        return item.x;
+      })));
+      var minY = Math.min.apply(Math, _toConsumableArray(coords.map(function (item) {
+        return item.y;
+      })));
+      this.textX = minX;
+      this.textY = minY;
+      if (this.rotate) {
+        this.coords.push(new Control(_objectSpread2({
+          left: x,
+          top: minY - 40,
+          target: this,
+          base: "center-center",
+          cursor: "crosshair",
+          mousemoveHandler: rotateObject
+        }, commonConfig)));
+      }
+      this.coords.forEach(function (item, index) {
+        var pot = new Point(item.left, item.top);
+        var _pot$rotate = pot.rotate(_this.angle, objCenter),
+          x = _pot$rotate.x,
+          y = _pot$rotate.y;
+        item.left = x;
+        item.top = y;
+      });
+      this.points = [this.coords[0].getCoords(), this.coords[2].getCoords(), this.coords[4].getCoords(), this.coords[6].getCoords()];
+    }
+  }]);
+  return Image;
+}(DrawObject);
+
 var CrosshairLine = /*#__PURE__*/function (_DrawObject) {
   _inherits(CrosshairLine, _DrawObject);
   var _super = _createSuper(CrosshairLine);
@@ -2449,7 +2838,7 @@ var CrosshairLine = /*#__PURE__*/function (_DrawObject) {
     var _this;
     _classCallCheck(this, CrosshairLine);
     _this = _super.call(this, options);
-    _this.type = 'crosshairline';
+    _this.type = 'Crosshairline';
     return _this;
   }
   _createClass(CrosshairLine, [{
@@ -2477,9 +2866,92 @@ var CrosshairLine = /*#__PURE__*/function (_DrawObject) {
       ctx.stroke();
       ctx.closePath();
       ctx.restore();
+      this.drawXScale(ctx);
+    }
+  }, {
+    key: "drawXScale",
+    value: function drawXScale(ctx) {
+      var baseStep, fillTextStep;
+      if (this.transformMatrix.a > 5) {
+        ctx.canvas.width;
+        ctx.canvas.height;
+        baseStep = 1;
+        fillTextStep = 10;
+      } else if (this.transformMatrix.a < .6) {
+        ctx.canvas.width;
+        ctx.canvas.height;
+        baseStep = 1;
+        fillTextStep = 100;
+      } else {
+        ctx.canvas.width;
+        ctx.canvas.height;
+        baseStep = 1;
+        fillTextStep = 50;
+      }
+      var x = this.points.x * this.transformMatrix.a + this.transformMatrix.e;
+      var y = this.points.y * this.transformMatrix.a + this.transformMatrix.f;
+      ctx.save();
+      ctx.resetTransform();
+      ctx.lineWidth = 1;
+      // console.log(x, y)
+      ctx.height - y;
+      ctx.width - x;
+      // ctx.moveTo(x - 1, y)
+      // ctx.lineTo(x - 1, y - 10)
+      // ctx.stroke()
+      // ctx.moveTo(x - 10, y)
+      // ctx.lineTo(x - 10, y - 10)
+      // ctx.stroke()
+      var drawLongLine = function drawLongLine(i) {
+        if (i % fillTextStep === 0) {
+          ctx.moveTo(i, y);
+          ctx.lineTo(i, y - 15);
+          var text = ctx.measureText(i);
+          text.width;
+          ctx.fillText(x - i, i, y - 10);
+        } else if (i % baseStep === 0) {
+          ctx.moveTo(i, y);
+          ctx.lineTo(i, y - 5);
+        }
+      };
+      for (var i = 0; i <= x; i += baseStep) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#0f0';
+        // ctx.lineTo(i, y - 10)
+        drawLongLine(i);
+        ctx.closePath();
+        ctx.stroke();
+      }
+      // for(let i = x; i <= ctx.canvas.width; i+=baseStep) {
+      //     ctx.beginPath()
+      //     ctx.strokeStyle = '#0f0'
+      //     ctx.moveTo(i, y)
+      //     // ctx.lineTo(i, y - 10)
+      //     drawLongLine(i)
+      //     ctx.closePath()
+      //     ctx.stroke()
+      // }
+
+      // for(let i = y; i >= 0; i-= baseStep) {
+      //     ctx.beginPath()
+      //     ctx.strokeStyle = '#0f0'
+      //     ctx.moveTo(x, y)
+      //     ctx.lineTo(x + 10, y)
+      //     ctx.closePath()
+      //     ctx.stroke()
+      // }
+      // for(let i = x; i <= ctx.canvas.width; i+=baseStep) {
+      //     ctx.beginPath()
+      //     ctx.strokeStyle = '#0f0'
+      //     ctx.moveTo(i, y)
+      //     ctx.lineTo(i, y - 10)
+      //     ctx.closePath()
+      //     ctx.stroke()
+      // }
+      ctx.restore();
     }
   }]);
   return CrosshairLine;
 }(DrawObject);
 
-export { Arrow, Canvas, CrosshairLine, DrawObject, Line, Matrix, Point, Polygon, Rect, Ruler, Text };
+export { Arrow, Canvas, Image$1 as CanvasImage, Control, CrosshairLine, Dot, DrawObject, Line, Mask, Matrix, Polygon, Rect, Ruler, Text };

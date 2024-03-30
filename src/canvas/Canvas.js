@@ -64,7 +64,7 @@ export class Canvas extends Selectable {
             }
             return
         }
-        
+        this.emit("mouse:down", optEvent);
         const p = this.getPointer(optEvent);
         this.mousedownPos = p;
         let target = this.getActiveObject();
@@ -80,6 +80,7 @@ export class Canvas extends Selectable {
             if (t && t !== target) {
                 target && target.set('isActive', false)
                 this.setActiveObject(t)
+                t.emit('mouse:down', optEvent)
                 t.set('isActive', true)
             }
             if (!t) {
@@ -87,7 +88,6 @@ export class Canvas extends Selectable {
             }
             this.requestRenderAll()
         }
-        this.emit("mouse:down", optEvent);
         if (this._activeObject && !this.skipFindTarget) {
             this.objectMoving = true
         }
@@ -161,8 +161,10 @@ export class Canvas extends Selectable {
             if (target) {
                 this.setCursor('move')
                 optEvent.target = target
+                this.emit('obj:mouseover', target)
             } else {
                 this.setCursor('default')
+                this.emit('obj:mouseout', target)
             }
         }
         this.emit("mouse:move", optEvent);
@@ -171,6 +173,12 @@ export class Canvas extends Selectable {
     handleMouseUp(evt) {
         let optEvent = this.getMousePosInfo(evt);
         this.emit("mouse:up", optEvent);
+        if (this.corner && this.corner.isEditing  && !this.skipFindTarget) {
+            this._activeObject.emit('obj:edit', this._activeObject)
+        }
+        if (this.objectMoving && this._activeObject) {
+            this._activeObject.emit('obj:move', this._activeObject)
+        }
         // let p = this.getPointer(optEvent)
         this.objectMoving = false
         cache.startPos = null
@@ -199,16 +207,26 @@ export class Canvas extends Selectable {
     }
     handleMouseWheel(evt) {
         let optEvent = this.getMousePosInfo(evt);
-        this.emit("mouse:wheel", optEvent);
+        if (this.wheel?.scroll) {
+            const preventDefault = (e) => {
+                if (e.target.tagName === 'CANVAS') {
+                    e.preventDefault()
+                } else {
+                    window.removeEventListener('mousewheel', preventDefault, { passive: false })
+                }
+            }
+            window.addEventListener('mousewheel', preventDefault, { passive: false })
+        }
         if (this.wheel?.scale) {
             let pos = this.getPointer(optEvent)
             let scale = optEvent.deltaY < 0 ? 1 + 0.2 : 1 - 0.2
             this.transformMatrix.translate(pos.x, pos.y).scaleU(scale)
-            if (this.transformMatrix.a > 40) this.transformMatrix.scaleU(40 / this.transformMatrix.a)
-            if (this.transformMatrix.a < 0.6) this.transformMatrix.scaleU(0.6 / this.transformMatrix.a)
+            if (this.transformMatrix.a > this.wheel.max) this.transformMatrix.scaleU(this.wheel.max / this.transformMatrix.a)
+            if (this.transformMatrix.a < this.wheel.min) this.transformMatrix.scaleU(this.wheel.min / this.transformMatrix.a)
             this.transformMatrix.translate(-pos.x, -pos.y)
             this.requestRenderAll()
         }
+        this.emit("mouse:wheel", optEvent);
     }
     getMousePosInfo(evt) {
         let optEvent = {

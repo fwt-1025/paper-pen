@@ -16,24 +16,9 @@ export class Arrow extends DrawObject {
     constructor(options) {
         super(options)
         let {points} = options
-        // this.start = start
-        // this.end = end
         this.width = Math.abs(points[0].x - points[1].x)
         this.height = Math.abs(points[0].y - points[1].y)
-        // let left, top
-        // if (start[0] < end[0]) {
-        //     left = start[0]
-        // } else {
-        //     left = end[0]
-        // }
-        // if (start[1] < end[1]) {
-        //     top = start[1]
-        // } else {
-        //     top = end[1]
-        // }
-        this.type = 'arrow'
-        // this.setCoords()
-        // this.arrow = options.arrow
+        this.type = 'Arrow'
     }
     _render(ctx) {
         const mat = ctx.getTransform()
@@ -41,18 +26,7 @@ export class Arrow extends DrawObject {
         ctx.beginPath()
         let {x: ax, y:ay} = this.points[0] //第一个点
         let {x: bx, y:by} = this.points[1]  //二
-        // ax = ax * this.scaleX
-        // bx = bx * this.scaleX
-        // ay = ay * this.scaleY
-        // by = by * this.scaleY
-        // const [cx, cy] = this.arrow  //三
-        // const a = Math.sqrt((bx - cx) ** 2 + (by - cy) ** 2) // 2到3
-        // const b = Math.sqrt((cx - ax) ** 2 + (cy - ay) ** 2) // 1到3
-        // const c = Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2) // 1到2
-        // const cosB = ((c ** 2 + a ** 2 - b ** 2) / (2 * c * a)) // 得到余弦值
-        // const deg = Math.acos(cosB) * 180 / Math.PI //反余弦得到角度
         const drawArrow = (x1, y1, x2, y2, l = 50, θ) => {
-            // console.log('角度', θ);
             const a = Math.atan2((y2 - y1), (x2 - x1));
             const x3 = x2 - l * Math.cos(a + θ * Math.PI / 180);
             const y3 = y2 - l * Math.sin(a + θ * Math.PI / 180);
@@ -89,12 +63,10 @@ export class Arrow extends DrawObject {
         } else {
             y = this.points[1].y + this.height / 2
         }
-        // mat = ctx.getTransform()
         let objCenter = {
             x,
             y,
         };
-        // if (this.type === "rect") {
             this.coords = [
                 new Control({
                     x: x - w / 2,
@@ -190,7 +162,6 @@ export class Arrow extends DrawObject {
             //         })
             //     );
             // }
-        // }
         if (this.isActive) {
             ctx.beginPath()
             this.coords.forEach((item, index) => {
@@ -199,10 +170,6 @@ export class Arrow extends DrawObject {
             ctx.closePath()
             ctx.stroke()
         }
-        // console.log(this.coords)
-        // this.coords.forEach((item) => {
-        //     item.setAngle(this.angle);
-        // });
     }
     // isPointInPath(e) {
 

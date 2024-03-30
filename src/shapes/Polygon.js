@@ -1,6 +1,5 @@
 import { DrawObject } from "./DrawObject";
 import { Control } from "../control/Controls";
-import { editPolygon, editPolygonCenter } from '../utils/editObject';
 
 export class Polygon extends DrawObject{
     centerControlPoints = []
@@ -9,24 +8,28 @@ export class Polygon extends DrawObject{
     centerPointsSize = 10
     centerPointsStroke = '#f00'
     centerPointsFill = '#fff'
+    needArrow = false
+    textX;
+    textY;
     constructor(options) {
         super(options)
-        this.type = 'polygon'
+        this.type = 'Polygon'
         this.setOptions(options)
     }
     _render(ctx) {
-        let {a,b,c,d,e,f} = this.transformMatrix
         ctx.save()
+        ctx.globalCompositeOperation = this.globalCompositeOperation || 'source-over'
         ctx.beginPath()
         ctx.strokeStyle = this.stroke || '#000'
         ctx.fillStyle = this.fill || '#000'
         this.points.forEach((item, index) => {
             ctx[index ? 'lineTo' : 'moveTo'](item.x, item.y)
         })
+        this.type === 'Line' && this.strokeOrFill(ctx)
         ctx.closePath()
-        this.strokeOrFill(ctx)
+        this.type === 'Polygon' && this.strokeOrFill(ctx)
         ctx.restore()
-        this.drawArrow(ctx, this.points[0].x, this.points[0].y, (this.points[0].x + this.points[1].x) / 2, (this.points[0].y + this.points[1].y) / 2)
+        this.needArrow && this.drawArrow(ctx, this.points[0].x, this.points[0].y, (this.points[0].x + this.points[1].x) / 2, (this.points[0].y + this.points[1].y) / 2)
         this.needCenterControl && this.renderCenterControl(ctx)
     }
     drawArrow(ctx, ax, ay, bx, by) {
@@ -66,7 +69,7 @@ export class Polygon extends DrawObject{
                 target: this,
                 cursor: "pointer",
                 index,
-                mousemoveHandler: editPolygon,
+                mousemoveHandler: this.editPolygon,
                 ...this.getCommonConfig()
             })
         })
@@ -76,6 +79,7 @@ export class Polygon extends DrawObject{
             x: (p1.x + p2.x) / 2,
             y: (p1.y + p2.y) / 2
         }))
+        this.type === 'Line' && this.centerControlPoints.pop()
         this.centerControlCoords = this.centerControlPoints.map((item, index) => {
             return new Control({
                 left: item.x,
@@ -87,8 +91,21 @@ export class Polygon extends DrawObject{
                 cornerSize: this.centerPointsSize,
                 cornerBorderColor: this.centerPointsStroke,
                 cornerColor: this.centerPointsFill,
-                mousedownHandler: editPolygonCenter
+                mousedownHandler: this.editPolygonCenter
             })
         })
+    }
+    editPolygon (target, loomObj, pos) {
+        target.left = pos.x
+        target.top = pos.y
+        loomObj.points[target.index] = target.getCoords()
+    }
+    
+    editPolygonCenter (target, loomObj) {
+        loomObj.points.splice(
+            target.index + 1,
+            0,
+            target.getCoords()
+        )
     }
 }

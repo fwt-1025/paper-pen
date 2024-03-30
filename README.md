@@ -1,6 +1,6 @@
 ### paper-pen.js
 
-> canvas、 annotation、annotate、Rect、Polygon、Matrix.
+> canvas、 annotation、annotate、Rect、Polygon、Line、Dot、Text、Matrix.
 
 - Quick start
 
@@ -11,8 +11,8 @@
 [online example](https://fwt-1025.github.io/paper-pen/test/)
 
 - features (待实现)
-    - mask
-    - group
+    - mask 超像素标注
+    - group 编组
     - text editor
 
 - demo
@@ -28,7 +28,7 @@
             height: 700, // canvas height
             preventDefault: true, // prevent right click
             selection: true, // can or not renderTop
-            skipFindTarget: false // skip find target default false
+            skipFindTarget: false // skip find target， default false
         }
     )
     paperPen.setBackground('Your Image Url') // set background
@@ -50,7 +50,8 @@
         '#c',
         {
             wheel: {
-                scale: true
+                scale: true, // 开启此项，会使滚轮支持画布缩放
+                scroll: true, // 开启此项，会使鼠标滚轮在画布中禁用滚动条
             }
         }
     })
@@ -128,7 +129,14 @@ import { Canvas } from 'paper-pen'
 | preventDefault | boolean | prevent right click |
 | selection | boolean | can or not renderTop
 | transformMatrix | object | matrix {a,b,c,d,e,f}
-
+| _objects | array | [shape, shape]
+| imageFillMode | string | 'contain'、'cover',针对backgroundImage |
+| wheel | object| 鼠标滚轮相关 |
+| wheel.scale | boolean | 是否开启滚轮缩放，default false |
+| wheel.scroll | boolean | 是否缩放时禁用浏览器滚动条 default false |
+| wheel.max | number | 缩放最大范围 |
+| wheel.min | number | 缩放最小范围 |
+| rightMove | boolean | 右键移动画布 default false |
 
 - shape common properties
 
@@ -144,6 +152,15 @@ import { Canvas } from 'paper-pen'
 | cornerColor | string | 
 | cornerOpacity | number | 0 - 1 |
 | lockMove | boolean |
+| displayGraph | boolean | 用来决定是否显示当前图形default true |
+| needControl | boolean | 是否显示控制点 default true |
+
+- shape common methods
+
+| name | type | description |
+| :----- | :------| :------ |
+| getBoundingBox |  | 获取包围盒 |
+| getCommonConfig | | 获取控制点默认配置 |
 
 - rect properties
 
@@ -159,8 +176,14 @@ import { Canvas } from 'paper-pen'
 | name | type | description |
 | :----- | :------| :------ |
 | points | Array<{x: number, y: number}> |  |
+| needArrow | boolean | 是否需要起始箭头 |
+| needCenterControl | boolean | 是否需要线段中点 |
+| centerPointsStyle | string | 'square'\| 'circle' 中点样式 |
+| centerPointsSize | number | 中点大小 |
+| centerPointsStroke | string | 中点描边颜色 |
+| centerPointsFill | string | 中点填充颜色 |
 
-- methods
+- instance methods
 
 | name | description| parameter | return |
 | :-----| :-----| :----------| :--------- |
@@ -174,21 +197,25 @@ import { Canvas } from 'paper-pen'
 | toJSON | get all elements on the canvas | null | [{},{}] |
 | requestRenderAll | clear all Objects on the canvas, draw all objects on the canvas | null |
 | toDataUrl | 将画布转换为图片（Convert Canvas to Pictures）| null | {imgData, imgUrl}
-| toBitMap | 将画布转换为单通道位图（Convert the canvas to a single channel bitmap）| [{r:number,g: number,b:number,a?:number},...]\|null | new Promise (ImageBitmap)
+| toBitMap | 将画布转换为单通道位图（Convert the canvas to a single channel bitmap）| [{r:number,g: number,b:number,a?:number},...]\|null | new Promise (ImageBitmap) 不传参数，默认转为二值图（黑白）
+| off | 卸载指定事件 | (事件名称，回调函数) | |
+| offAll | 卸载监听事件， 不传参，卸载所有实例监听事件 | 事件名称，如：'mouse:down',将会卸载所有的mouse:down事件 | |
 
 - eventListener
 
 | name | description | callback |
 | :-----| :----- | :-----|
-| mouse:down | mouse down event | 
-| mouse:move | mouse move event |
-| mouse:wheel| mouse wheel event |
-| mouse:up | mouse up event |
-| img:load | When the background image is an online link, it is necessary to ensure that the image has been loaded completely  |
-| render:before | before render |
-| render:after | render after |
-| obj:add | Object has been added |
-| obj:remove | the object has been remove |
+| mouse:down | 鼠标按下事件 | 
+| mouse:move | 鼠标移动事件 |
+| mouse:wheel| 鼠标滚轮事件 |
+| mouse:up | 鼠标抬起事件 |
+| img:load | 当背景图是在线地址时，等图片加载完成后的回调  |
+| render:before | 画布元素渲染前 |
+| render:after | 画布元素渲染后 |
+| obj:add | 元素被添加到画布后 |
+| obj:remove | 元素从画布中删除后 |
+| obj:edit | 元素被编辑后 |
+| obj:move | 元素被移动后 |
 
 ```js
     // paper-pen为开发者提供了mouse:down 、mouse:move、mouse:up、img:load、after:render事件回调。
@@ -224,3 +251,4 @@ import { Canvas } from 'paper-pen'
     mat.translate(10, 10) // (1, 0, 0, 1, 10, 10) 返回新的矩阵
     mat.translate(100, 100).scale(1.5, 2) // 这里的换算都是用矩阵的叉乘。
 ```
+

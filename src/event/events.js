@@ -15,6 +15,16 @@ export default class Event{
         }
     }
     off(eventName, fn) {
+        if (!this.eventList[eventName]) {
+            return
+        }
         this.eventList[eventName] = this.eventList[eventName].filter(item => item!== fn)
+    }
+    offAll(eventName) {
+        if (eventName) {
+            delete this.eventList[eventName]
+            return
+        }
+        this.eventList = {}
     }
 }

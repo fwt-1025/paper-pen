@@ -2,10 +2,10 @@ import { DrawObject } from "./DrawObject";
 import { Control } from "../control/Controls";
 import { moveObject } from '../utils/editObject'
 
-export class Point extends DrawObject{
+export class Dot extends DrawObject{
     constructor(options) {
         super(options)
-        this.type = 'point'
+        this.type = 'Dot'
     }
     _render(ctx){
         ctx.save()
@@ -28,7 +28,7 @@ export class Point extends DrawObject{
     }
     isPointInPath(pos) {
         let radius = this.radius / this.transformMatrix.a
-        if (pos.x < this.left + radius && pos.y < this.top + radius && pos.x > this.left - radius && pos.y > this.top - radius) {
+        if (pos.x < this.originX + radius && pos.y < this.originY + radius && pos.x > this.originX - radius && pos.y > this.originY - radius) {
             return true
         }
     }

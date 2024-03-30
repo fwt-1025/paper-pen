@@ -5,17 +5,19 @@ export class Text extends DrawObject {
     relationShipId = ''
     fontSize = 20
     parent = null
+    textX = 0
+    textY = 0
+    text = ''
     constructor(options) {
         super(options)
         this.type = 'Text'
-        this.fillText = options.fillText
-        this.fontSize = options.fontSize
+        this.setOptions(options)
     }
     
     _render(ctx) {
         // console.log(this.parent.coords[0].x)
         ctx.save()
-        ctx.translate(this.parent.textX, this.parent.textY)
+        ctx.translate(this.parent?.textX || this.textX, this.parent?.textY || this.textY)
         // ctx.rotate(this.parent.angle)
         let fontSize = this.fontSize / this.transformMatrix.a
         ctx.font = `bold ${fontSize}px Alibaba_PuHuiTi_Regular`

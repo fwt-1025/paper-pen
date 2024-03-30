@@ -1,7 +1,7 @@
 import { getRandomId } from '../utils/getRandomId'
 import Event from '../event/events';
 export class DrawObject extends Event {
-    type = "object";
+    type = "Object";
     scaleX = 1;
     scaleY = 1;
     skewX = 0.0; // Degrees, 0.0 to 3.14
@@ -9,6 +9,7 @@ export class DrawObject extends Event {
     translateX = 0.0;
     translateY = 0.0;
     isActive = false;
+    displayGraph = true
     lineCap = 'round'
     lineJoin = 'round'
     fill = "";
@@ -38,6 +39,7 @@ export class DrawObject extends Event {
     cornerOpacity = 1
     transformMatrix = {a: 1, b: 0, c: 0, d: 1, e: 0, f: 0}
     notNeedFindTarget = false
+    needControl = true
     lockMove = false
 
     constructor(options) {
@@ -56,6 +58,7 @@ export class DrawObject extends Event {
         }
     }
     render(ctx, canvas) {
+        if (!this.displayGraph) return
         this.ratio = canvas.ratio
         this.transformMatrix = canvas.transformMatrix
         ctx.save();
@@ -67,7 +70,7 @@ export class DrawObject extends Event {
         this._render(ctx);
         ctx.restore();
         this.setCoords && this.setCoords(ctx)
-        this.isActive && this._drawControls(ctx);
+        this.isActive && this.needControl &&  this._drawControls(ctx);
         this.isActive && this._drawBorders();
     }
     transform(ctx) {
@@ -92,7 +95,7 @@ export class DrawObject extends Event {
         ctx.save()
         this.coords.forEach((item) => {
             // console.log(item)
-            item.drawControl(ctx, this.angle);
+            item.display && item.drawControl(ctx, this.angle);
         });
         this.centerControlCoords?.length && this.centerControlCoords.forEach(item => {
             item.drawControl(ctx, this.angle);
@@ -120,6 +123,31 @@ export class DrawObject extends Event {
             cornerColor: this.cornerColor,
             cornerBorderColor: this.cornerBorderColor,
             cornerOpacity: this.cornerOpacity
+        }
+    }
+    getBoundingBox() {
+        if (this.type === 'Text') {
+            return
+        }
+        if (!(0 in this.points) || !this.points) {
+            console.error('当前形状' + this.type + '没有points字段')
+            return
+        }
+        let xArr = []
+        let yArr = []
+        this.points.forEach(({x,y}) => {
+            xArr.push(x)
+            yArr.push(y)
+        })
+        let maxX = Math.max.apply(null, xArr)
+        let maxY = Math.max.apply(null, yArr)
+        let minX = Math.min.apply(null, xArr)
+        let minY = Math.min.apply(null, yArr)
+        return {
+            x: minX,
+            y: minY,
+            w: maxX - minX,
+            h: maxY - minY
         }
     }
 }

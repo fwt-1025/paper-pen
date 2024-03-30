@@ -1,0 +1,15 @@
+.header{
+    position: relative;
+}
+.header ul{
+    display: flex;
+}
+ul li{
+    list-style: none;
+    padding: 10px 15px;
+    background: #f00;
+    margin: 0 5px;
+}
+.canvas-box{
+    border: 2px solid #f00;
+}

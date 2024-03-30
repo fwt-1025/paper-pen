@@ -1,36 +1,44 @@
 import { DrawObject } from "./DrawObject";
 import { Control } from "../control/Controls";
-import { calcScaleX, calcScaleY, calcScaleAll } from "../control/scale";
-import { rotateObject } from "../control/rotate";
-import { scaleCursor } from "../control/scale";
-import { Point } from "../utils/Point";
 
-export class Rect extends DrawObject {
-    textX;
-    textY;
+export class Image extends DrawObject {
     constructor(options) {
         super(options);
-        this.type = "Rect";
+        // this.img = options.img
+        // this.imgOptions = options.imgOptions || [] // []
     }
     _render(ctx) {
-        ctx.save();
-        let x = (-this.width * this.scaleX) / 2,
-            y = (-this.height * this.scaleY) / 2,
-            w = this.width * this.scaleX,
-            h = this.height * this.scaleY;
         ctx.beginPath();
-        ctx.lineWidth = this.lineWidth / Math.abs(this.transformMatrix.a);
-        ctx.strokeStyle = this.stroke;
-        ctx.fillStyle = this.fill;
-        ctx.rect(x, y, w, h);
+        if (!this.imgOptions.length) {
+            console.error(
+                "你需要提供imgOptions参数，参数个数分别为2个 4个 8个，但是程序收到了0个"
+            );
+            return;
+        }
+
+        // console.log(this.imgUrl)
+        // this.imgUrl.onload = () => {
+        if (this.imgOptions.length === 2) {
+            let [sx, sy] = this.imgOptions;
+            ctx.drawImage(this.img, sx, sy);
+        } else if (this.imgOptions.length === 4) {
+            let [sx, sy, sw, sh] = this.imgOptions;
+            ctx.drawImage(this.img, sx, sy, sw, sh);
+        } else if (this.imgOptions.length === 8) {
+            let [sx, sy, sw, sh, dx, dy, dw, dh] = this.imgOptions;
+            ctx.drawImage(this.img, sx, sy, sw, sh, dx, dy, dw, dh);
+        }
+        // }
+
         ctx.closePath();
-        this.strokeOrFill(ctx);
-        ctx.restore();
-        this.matrix = ctx.getTransform();
     }
     setCoords() {
-        let w = this.width * this.scaleX,
-            h = this.height * this.scaleY,
+        let sx, sy, sw, sh;
+        if (this.imgOptions.length > 2) {
+            [sx, sy, sw, sh] = this.imgOptions;
+        }
+        let w = sw * this.scaleX,
+            h = sh * this.scaleY,
             x = this.originX,
             y = this.originY;
         let objCenter = {

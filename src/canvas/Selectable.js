@@ -16,7 +16,7 @@ const defaultTransfromMatrix = {
     originX: "left",
     originY: "top",
 };
-
+let id = 0;
 export class Selectable extends Event {
     el = null;
     width = 0;
@@ -25,6 +25,8 @@ export class Selectable extends Event {
     lowerContext = null;
     upperCanvas = null;
     canvasContainer = null;
+    cacheCanvas = null
+    cacheCtx = null
     transform = [1, 0, 0, 1, 0, 0];
     transformMatrix = new Matrix();
     defaultTransform = defaultTransfromMatrix;
@@ -37,8 +39,10 @@ export class Selectable extends Event {
     selectionOpacity = 0.3;
     background = "";
     backgroundImage = new Image();
-    baseWidth = false;
-    baseHeight = true;
+    mask = false
+    maskCanvas = null
+    maskContext = null
+    imageFillMode = "contain"; // 'contain' (baseheight) | 'cover' (default basewidth)
     ratio = {
         x: 1,
         y: 1,
@@ -47,27 +51,37 @@ export class Selectable extends Event {
         w: 0,
         h: 0,
     };
-    preventDefault = true
-    selection = true // can or not renderTop
-    skipFindTarget = false // 跳过查找当前元素
+    preventDefault = true;
+    selection = true; // can or not renderTop
+    skipFindTarget = false; // 跳过查找当前元素
     wheel = {
-        scale: false // 是否开启鼠标滚轮缩放
-    }
-    rightMove = false // 是否开启鼠标右键拖动画布
+        scale: false, // 是否开启鼠标滚轮缩放
+        max: 40,
+        min: 0.6,
+        scroll: false, // 缩放时是否禁用浏览器滚动功能。
+    };
+    rightMove = false; // 是否开启鼠标右键拖动画布
+    createCanvas = []
+    canvasList = []
+    contextList = []
     constructor(el, options) {
         super();
         this.setOptions(options);
         this.el = el;
+        id++;
         this.initLowerCanvas();
         this.initCanvasContainer();
         this.initUpperCanvas();
+        this.createCanvas.length && this.createCanvasElement()
+        if (this.mask && this.maskCanvas) this.initMaskCanvas()
+        this.cacheCanvas = document.createElement('canvas')
+        this.cacheCtx = this.cacheCanvas.getContext('2d')
     }
     setOptions(options) {
         for (const key in options) {
             // For each key in options object...
             this[key] = options[key];
         }
-        console.log(this,this.rightMove)
         // if (this.background) {
         //     if (typeof this.background === 'string') {
         //         this.backgroundImage.src = this.background
@@ -75,6 +89,17 @@ export class Selectable extends Event {
         //         this.backgroundImage = this.background
         //     }
         // }
+    }
+    createCanvasElement() {
+        this.createCanvas.forEach(item => {
+            console.log(item)
+            this[item.canvasName] = item.el
+            this[item.contextName] = item.el.getContext('2d')
+            this.setCanvasStyles(this[item.canvasName])
+            this[item.canvasName].classList.add(item.canvasName + '-' + id)
+            this.canvasList.push(this[item.canvasName])
+            this.contextList.push(this[item.contextName])
+        })
     }
     initLowerCanvas() {
         if (!this.el) {
@@ -88,12 +113,23 @@ export class Selectable extends Event {
             this.lowerCanvas = this.el;
         }
         this.setCanvasStyles(this.lowerCanvas);
-        this.lowerCanvas.classList.add("lower-canvas");
+        this.lowerCanvas.classList.add("lower-canvas-"+id);
         this.lowerContext = this.lowerCanvas.getContext("2d"); //get 2d context from the lower-canvas element
+        this.canvasList.push(this.lowerCanvas)
+        this.contextList.push(this.lowerContext)
+    }
+    initMaskCanvas() {
+        if (this.mask && this.maskCanvas) {
+            this.setCanvasStyles(this.maskCanvas);
+            this.maskCanvas.classList.add('mask-canvas-' + id);
+            this.maskContext = this.maskCanvas.getContext('2d')
+            this.canvasList.push(this.maskCanvas)
+            this.contextList.push(this.maskContext)
+        }
     }
     initCanvasContainer() {
         this.canvasContainer = document.createElement("div");
-        this.canvasContainer.classList.add("canvas-container");
+        this.canvasContainer.classList.add("canvas-container-" + id);
         this.lowerCanvas?.parentNode?.replaceChild(
             this.canvasContainer,
             this.lowerCanvas
@@ -105,12 +141,16 @@ export class Selectable extends Event {
     }
     initUpperCanvas() {
         this.upperCanvas = document.createElement("canvas");
-        this.upperCanvas.classList.add("upper-canvas");
+        this.upperCanvas.classList.add("upper-canvas-"+id);
         this.upperContext = this.upperCanvas.getContext("2d");
         this.setCanvasStyles(this.upperCanvas);
+        this.canvasList.push(this.upperCanvas)
+        this.upperCanvas.style.setProperty('z-index', id)
         this.canvasContainer?.appendChild(this.upperCanvas);
+        // this.canvasList.push(this.upperCanvas)
+        // this.contextList.push(this.upperContext)
     }
-    setCanvasStyles(element) {
+    setCanvasStyles(element, customCanvasStyle = {}) {
         let styles = {
             position: "absolute",
             top: "0px",
@@ -118,6 +158,7 @@ export class Selectable extends Event {
             width: this.width + "px",
             height: this.height + "px",
         };
+        styles = Object.assign(styles, customCanvasStyle)
         Object.entries(styles).forEach(([property, value]) => {
             element.style.setProperty(property, value);
         });
@@ -129,29 +170,38 @@ export class Selectable extends Event {
             item.setCoords && item.setCoords(this.lowerContext, this);
         });
         this._objects.push(...rest);
-        this.emit('obj:add')
+        this.emit("obj:add");
         this.requestRenderAll();
     }
     remove(drawObj) {
-        this._objects = this._objects.filter(item => item.id !== drawObj.id)
-        this.emit('obj:remove')
+        this._objects = this._objects.filter((item) => item.id !== drawObj.id);
+        this.emit("obj:remove");
+    }
+    /**
+     * remove all objects
+     */
+    removeAll() {
+        this._objects = [];
     }
     requestRenderAll() {
+        window.cancelAnimationFrame(this._renderAll.bind(this));
         window.requestAnimationFrame(this._renderAll.bind(this));
     }
     _renderAll() {
-        this.lowerContext.setTransform(this.transformMatrix.clone())
-        this.clearContext(this.lowerContext);
+        this.contextList.forEach(ctx => {
+            ctx.setTransform(this.transformMatrix.clone());
+            this.clearContext(ctx);
+        })
         if (this.backgroundImage) {
             this.drawBackground(this.lowerContext);
         }
-        this.emit('render:before')
-        this.lowerContext.save();
+        this.emit("render:before");
         this._objects.forEach((item) => {
-            item.render(this.lowerContext, this);
+            item.target ? item.target.save() : this.lowerContext.save();
+            item.render(item.target || this.lowerContext, this)
+            item.target ? item.target.restore() : this.lowerContext.restore();
         });
-        this.lowerContext.restore();
-        this.emit('render:after')
+        this.emit("render:after");
     }
     setBackground(bg, options) {
         if (typeof bg === "string") {
@@ -165,30 +215,51 @@ export class Selectable extends Event {
                     this.backgroundImage.naturalWidth /
                     this.backgroundImage.naturalHeight;
                 // let width, height
-                if (this.baseWidth) {
-                    this.width = this.width;
-                    this.height = this.width / pixel;
-                } else if (this.baseHeight) {
-                    this.width = this.height * pixel;
-                    this.height = this.height;
+                if (this.imageFillMode === "cover") {
+                    this.bgWidth = this.width;
+                    this.bgHeight = this.width / pixel;
+                } else if (this.imageFillMode === "contain") {
+                    this.bgWidth = this.height * pixel;
+                    this.bgHeight = this.height;
                 }
                 if (options?.width && options?.height) {
-                    this.width = options.width
-                    this.height = options.height
+                    this.bgWidth = options.width;
+                    this.bgHeight = options.height;
                 }
-                this.setCanvasStyles(this.lowerCanvas);
-                this.setCanvasStyles(this.upperCanvas);
-                this.emit('img:load', this)
-                this.requestRenderAll();
+                this.cacheCanvas.width = this.bgWidth
+                this.cacheCanvas.height = this.bgHeight
+                // this.setCanvasStyles(this.lowerCanvas);
+                // this.setCanvasStyles(this.upperCanvas);
+                this.cacheCtx.drawImage(this.backgroundImage, this.bgLeft || 0, this.bgTop || 0, this.bgWidth, this.bgHeight)
+                this.emit("img:load", this);
             };
-            return
+            this.requestRenderAll();
+            return;
         }
         this.backgroundImage = bg;
+        let pixel =
+        this.backgroundImage.naturalWidth ? (this.backgroundImage.naturalWidth /
+            this.backgroundImage.naturalHeight) : this.backgroundImage.width ? (this.backgroundImage.width/ this.backgroundImage.height) : 1920 / 1080;
+        // let width, height
+        if (this.imageFillMode === "cover") {
+            this.bgWidth = this.width;
+            this.bgHeight = this.width / pixel;
+        } else if (this.imageFillMode === "contain") {
+            this.bgWidth = this.height * pixel;
+            this.bgHeight = this.height;
+        }
+        if (options?.width && options?.height) {
+            this.bgWidth = options.width;
+            this.bgHeight = options.height;
+        }
+        this.cacheCanvas.width = this.bgWidth
+        this.cacheCanvas.height = this.bgHeight
+        this.cacheCtx.drawImage(this.backgroundImage, this.bgLeft || 0, this.bgTop || 0, this.bgWidth, this.bgHeight)
         this.requestRenderAll();
     }
     drawBackground(ctx) {
         ctx.save();
-        ctx.drawImage(this.backgroundImage, 0, 0, this.width, this.height);
+        ctx.drawImage(this.cacheCanvas, this.bgLeft || 0, this.bgTop || 0, this.bgWidth, this.bgHeight);
         ctx.restore();
     }
     clearContext(ctx) {
@@ -223,7 +294,7 @@ export class Selectable extends Event {
         let { x, y, deltaX, deltaY } = this._groupSelector;
         const { a, b, c, d, e, f } = this.transformMatrix;
         x = x * a + e;
-        y = y * a + f;
+        y = y * d + f;
         // deltaX = deltaX * a + e
         // deltaY = deltaY * a + f
         if (this.selectionColor) {
@@ -254,7 +325,7 @@ export class Selectable extends Event {
         };
     }
     set(key, val) {
-        this[key] = val
+        this[key] = val;
     }
     _findTarget(pos, coords) {
         let p = pos;
@@ -328,86 +399,140 @@ export class Selectable extends Event {
         this.upperCanvas.style.cursor = cursor;
     }
     resetActive() {
-        this._objects.forEach(item => {
-            item.set('isActive', false)
-        })
+        this._objects.forEach((item) => {
+            item.set("isActive", false);
+        });
+    }
+    resetTransformMatrix() {
+        this.transformMatrix = this.transformMatrix.reset();
+        this.requestRenderAll();
     }
     destroy() {
         // this.canvasContainer?.removeChild(this.upperCanvas)
         // this.canvasContainer?.removeChild(this.lowerCanvas)
         // this.canvasContainer?.replaceChild(this.lowerCanvas, this.canvasContainer)
+        this.offAll()
     }
     /**
-     * 
+     *
      * @returns {imgData: ImageData, imgUrl: base64 string}
      */
     toDataUrl() {
         // this.upperCanvas.toDataUrl()
-        let canvas = document.createElement('canvas')
-        canvas.width = this.lowerCanvas.width
-        canvas.height = this.lowerCanvas.height
-        let ctx = canvas.getContext('2d')
-        ctx.setTransform(this.transformMatrix.clone())
+        let canvas = document.createElement("canvas");
+        canvas.width = this.lowerCanvas.width;
+        canvas.height = this.lowerCanvas.height;
+        let ctx = canvas.getContext("2d");
+        ctx.setTransform(this.transformMatrix.clone());
         this.clearContext(ctx);
         ctx.save();
         this._objects.forEach((item) => {
             item.render(ctx, this);
         });
         ctx.restore();
-        let imgBase64Url = canvas.toDataURL()
-        let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        let imgBase64Url = canvas.toDataURL();
+        let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         return {
             imgData,
-            imgUrl: imgBase64Url
-        }
+            imgUrl: imgBase64Url,
+        };
     }
     /**
-     * 
+     *
      * @param {*} fillList [{r: number, g: number, b: number, a: number, fill: number}, ...]
      * @returns new Promise() ImageBitmap
      */
     toBitMap(fillList) {
-        let {imgData} = this.toDataUrl()
-        let data = imgData.data
+        let { imgData } = this.toDataUrl();
+        let data = imgData.data;
         if (fillList) {
-            let fillListArr = fillList.map(item => {
-                return item.r + '-' + item.g + '-' + item.b
-            })
-            for (let i = 0; i < data.length; i+=4) {
-                let index = fillListArr.findIndex(ite => ite === data[i] + '-' + data[i+1] + '-' + data[i+2])
+            let fillListArr = fillList.map((item) => {
+                return item.r + "-" + item.g + "-" + item.b;
+            });
+            for (let i = 0; i < data.length; i += 4) {
+                let index = fillListArr.findIndex(
+                    (ite) =>
+                        ite === data[i] + "-" + data[i + 1] + "-" + data[i + 2]
+                );
                 if (~index) {
-                    data[i] = fillList[index].fill
-                    data[i+1] = 0
-                    data[i+2] = 0
-                    data[i+3] = 255
+                    data[i] = fillList[index].fill;
+                    data[i + 1] = 0;
+                    data[i + 2] = 0;
+                    data[i + 3] = 255;
                 } else {
-                    data[i] = 255
-                    data[i+1] = 255
-                    data[i+2] = 255
-                    data[i+3] = 255
+                    data[i] = 255;
+                    data[i + 1] = 255;
+                    data[i + 2] = 255;
+                    data[i + 3] = 255;
                 }
             }
         } else {
-            for (let i = 0; i < data.length; i+=4) {
-                if (data[i] || data[i+1] || data[i+2] || data[i+3]) {
-                    data[i] = 0
-                    data[i+1] = 0
-                    data[i+2] = 0
-                    data[i+3] = 255
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i] || data[i + 1] || data[i + 2] || data[i + 3]) {
+                    data[i] = 0;
+                    data[i + 1] = 0;
+                    data[i + 2] = 0;
+                    data[i + 3] = 255;
                 } else {
-                    data[i] = 255
-                    data[i+1] = 255
-                    data[i+2] = 255
-                    data[i+3] = 255
+                    data[i] = 255;
+                    data[i + 1] = 255;
+                    data[i + 2] = 255;
+                    data[i + 3] = 255;
                 }
             }
         }
-        return createImageBitmap(imgData, 0, 0, this.upperCanvas.width, this.upperCanvas.height)
+        return createImageBitmap(
+            imgData,
+            0,
+            0,
+            this.upperCanvas.width,
+            this.upperCanvas.height
+        );
     }
     toObjects() {
         return {
-            objects: this._objects,
-            pixelSize: this.pixelSize
-        }
+            objects: this._objects.map(item => {
+                let {points,
+                    scaleX,
+                    scaleY,
+                    translateX,
+                    translateY,
+                    matrix,
+                    transformMatrix,
+                    width,
+                    height,
+                    left, 
+                    top,
+                    skewX,
+                    skewY,
+                    angle,
+                    type,
+                    stroke,
+                    fill,
+                    id
+                } = item
+                return {
+                    points,
+                    scaleX,
+                    scaleY,
+                    translateX,
+                    translateY,
+                    matrix,
+                    transformMatrix,
+                    width,
+                    height,
+                    left, 
+                    top,
+                    skewX,
+                    skewY,
+                    angle,
+                    type,
+                    stroke,
+                    fill,
+                    id
+                }
+            }),
+            pixelSize: this.pixelSize,
+        };
     }
 }

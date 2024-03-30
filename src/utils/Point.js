@@ -1,9 +1,9 @@
 /**
- * class Pot
+ * class Point
  * 点坐标的计算
  * author fwt-1025
  */
-class Pot{
+class Point{
     constructor(x, y) {
         this.x = x
         this.y = y
@@ -54,5 +54,5 @@ class Pot{
 }
 
 export {
-    Pot
+    Point
 }

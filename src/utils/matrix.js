@@ -124,4 +124,14 @@ export class Matrix {
     clone() {
         return new Matrix(this.a, this.b, this.c, this.d, this.e, this.f)
     }
+    /**
+     * reset the matrix
+     * 1 0 0
+     * 0 1 0
+     * 0 0 1
+     * @returns new Matrix
+     */
+    reset() {
+        return new Matrix()
+    }
 }

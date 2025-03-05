@@ -12,6 +12,8 @@ export class DrawObject extends Event {
     displayGraph = true
     lineCap = 'round'
     lineJoin = 'round'
+    isDash = [];// 虚线
+    isDouble = [1]; // 双线
     fill = "";
     stroke = "";
     opacity = 1.0;
@@ -37,6 +39,7 @@ export class DrawObject extends Event {
     cornerBorderColor = '#000'
     cornerColor = ''
     cornerOpacity = 1
+    cornerDisplay = true
     transformMatrix = {a: 1, b: 0, c: 0, d: 1, e: 0, f: 0}
     notNeedFindTarget = false
     needControl = true
@@ -69,7 +72,7 @@ export class DrawObject extends Event {
         this.transform(ctx);
         this._render(ctx);
         ctx.restore();
-        this.setCoords && this.setCoords(ctx)
+        this.needControl && this.setCoords && this.setCoords(ctx)
         this.isActive && this.needControl &&  this._drawControls(ctx);
         this.isActive && this._drawBorders();
     }
@@ -122,7 +125,8 @@ export class DrawObject extends Event {
             cornerStyle:this.cornerStyle,
             cornerColor: this.cornerColor,
             cornerBorderColor: this.cornerBorderColor,
-            cornerOpacity: this.cornerOpacity
+            cornerOpacity: this.cornerOpacity,
+            display: this.cornerDisplay
         }
     }
     getBoundingBox() {
@@ -133,6 +137,18 @@ export class DrawObject extends Event {
             console.error('当前形状' + this.type + '没有points字段')
             return
         }
+        let { minX, minY, maxX, maxY } = this.getMaxAndMinmun()
+        return {
+            minX,
+            minY,
+            maxX,
+            maxY,
+            id: this.id,
+            w: maxX - minX,
+            h: maxY - minY
+        }
+    }
+    getMaxAndMinmun() {
         let xArr = []
         let yArr = []
         this.points.forEach(({x,y}) => {
@@ -144,10 +160,17 @@ export class DrawObject extends Event {
         let minX = Math.min.apply(null, xArr)
         let minY = Math.min.apply(null, yArr)
         return {
-            x: minX,
-            y: minY,
-            w: maxX - minX,
-            h: maxY - minY
+            maxX,
+            minX,
+            maxY,
+            minY
+        }
+    }
+    getShapeCenter() {
+        let { minX, minY, maxX, maxY } = this.getMaxAndMinmun()
+        return {
+            x: (minX + maxX) / 2,
+            y: (minY + maxY) / 2,
         }
     }
 }

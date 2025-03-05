@@ -22,7 +22,17 @@ export class Rect extends DrawObject {
         ctx.lineWidth = this.lineWidth / Math.abs(this.transformMatrix.a);
         ctx.strokeStyle = this.stroke;
         ctx.fillStyle = this.fill;
-        ctx.rect(x, y, w, h);
+        if (!this.isUseMatrix) {
+            x /= this.transformMatrix.a;
+            y /= this.transformMatrix.a;
+            w /= this.transformMatrix.a;
+            h /= this.transformMatrix.a;
+        }
+        if (this.radius) {
+            ctx.roundRect(x,y,w,h,this.radius)
+        } else {
+            ctx.rect(x, y, w, h)
+        };
         ctx.closePath();
         this.strokeOrFill(ctx);
         ctx.restore();

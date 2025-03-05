@@ -54,6 +54,7 @@ export class Canvas extends Selectable {
                     let y = me.y - pointer.y
                     this.transformMatrix.translate(x, y)
                     this.requestRenderAll()
+                    this.emit("mouse:drag", optEvent);
                 }
                 const removeMoveCanvas = () => {
                     removeEvent(this.upperCanvas, "mousemove", moveCanvas)
@@ -72,6 +73,7 @@ export class Canvas extends Selectable {
             this.corner.isEditing = true;
             this.setDefaultTransform(p, target);
             this.corner.mousedownHandler && this.corner.mousedownHandler(this.corner, this.corner.target, this.mousedownPos)
+            this.emit('control.mouse:down', this.corner.getCoords())
             this.requestRenderAll()
             return
         }
@@ -80,11 +82,12 @@ export class Canvas extends Selectable {
             if (t && t !== target) {
                 target && target.set('isActive', false)
                 this.setActiveObject(t)
-                t.emit('mouse:down', optEvent)
+                this.emit('obj:activeted', t)
                 t.set('isActive', true)
             }
             if (!t) {
                 this.setActiveObject(null)
+                this.emit('obj:deactive', t)
             }
             this.requestRenderAll()
         }
@@ -132,7 +135,7 @@ export class Canvas extends Selectable {
                 }
             }
         }
-        if (this.corner && this.corner.isEditing  && !this.skipFindTarget) {
+        if (this.corner && this.corner.isEditing && !this.skipFindTarget) {
             this.corner.mousemoveHandler && this.corner.mousemoveHandler(
                 this.corner,
                 this.corner.target,
@@ -140,6 +143,7 @@ export class Canvas extends Selectable {
                 this.defaultTransform,
                 this.mousedownPos
             );
+            this.emit('control.mouse:move', this.corner.getCoords())
             this.requestRenderAll();
         }
         if (this.objectMoving && this._activeObject) {
@@ -173,7 +177,7 @@ export class Canvas extends Selectable {
     handleMouseUp(evt) {
         let optEvent = this.getMousePosInfo(evt);
         this.emit("mouse:up", optEvent);
-        if (this.corner && this.corner.isEditing  && !this.skipFindTarget) {
+        if (this.corner && this.corner.isEditing && !this.skipFindTarget) {
             this._activeObject.emit('obj:edit', this._activeObject)
         }
         if (this.objectMoving && this._activeObject) {
@@ -182,7 +186,6 @@ export class Canvas extends Selectable {
         // let p = this.getPointer(optEvent)
         this.objectMoving = false
         cache.startPos = null
-        this._groupSelector = null
         if (evt.button === 2) {
             return
         }
@@ -190,7 +193,11 @@ export class Canvas extends Selectable {
         //     return
         // }
         this.corner = null;
-        if (this.contextTopDirty) this.clearContext(this.upperContext)
+        if (this.contextTopDirty) {
+            this.emit('obj:selection', this._groupSelector)
+            this.clearContext(this.upperContext)
+            this._groupSelector = null
+        }
         // let target = this.getActiveObject()
         // if (!this.corner) {
         //     let t = this.findTarget(p)
@@ -237,6 +244,7 @@ export class Canvas extends Selectable {
             offsetX: evt.offsetX,
             offsetY: evt.offsetY,
             ctrlKey: evt.ctrlKey,
+            altKey: evt.altKey,
             shiftKey: evt.shiftKey,
             deltaY: evt.deltaY,
         };

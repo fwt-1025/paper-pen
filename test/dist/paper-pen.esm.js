@@ -1160,11 +1160,11 @@ var Selectable = /*#__PURE__*/function (_Event) {
             _this5.bgWidth = options.width;
             _this5.bgHeight = options.height;
           }
-          _this5.cacheCanvas.width = _this5.backgroundImage.naturalWidth;
-          _this5.cacheCanvas.height = _this5.backgroundImage.naturalHeight;
+          _this5.cacheCanvas.width = _this5.bgWidth;
+          _this5.cacheCanvas.height = _this5.bgHeight;
           // this.setCanvasStyles(this.lowerCanvas);
           // this.setCanvasStyles(this.upperCanvas);
-          _this5.cacheCtx.drawImage(_this5.backgroundImage, _this5.bgLeft || 0, _this5.bgTop || 0, _this5.backgroundImage.naturalWidth, _this5.backgroundImage.naturalHeight);
+          _this5.cacheCtx.drawImage(_this5.backgroundImage, _this5.bgLeft || 0, _this5.bgTop || 0, _this5.bgWidth, _this5.bgHeight);
           _this5.emit("img:load", _this5);
         };
         this.requestRenderAll();
@@ -1187,9 +1187,9 @@ var Selectable = /*#__PURE__*/function (_Event) {
         this.bgWidth = options.width;
         this.bgHeight = options.height;
       }
-      this.cacheCanvas.width = this.backgroundImage.naturalWidth;
-      this.cacheCanvas.height = this.backgroundImage.naturalHeight;
-      this.cacheCtx.drawImage(this.backgroundImage, this.bgLeft || 0, this.bgTop || 0, this.backgroundImage.naturalWidth, this.backgroundImage.naturalHeight);
+      this.cacheCanvas.width = this.bgWidth;
+      this.cacheCanvas.height = this.bgHeight;
+      this.cacheCtx.drawImage(this.backgroundImage, this.bgLeft || 0, this.bgTop || 0, this.bgWidth, this.bgHeight);
       this.requestRenderAll();
     }
   }, {
@@ -1520,8 +1520,7 @@ var Selectable = /*#__PURE__*/function (_Event) {
       var _ref3$base = _ref3.base,
         base = _ref3$base === void 0 ? 'w' : _ref3$base,
         baseW = _ref3.baseW,
-        baseH = _ref3.baseH,
-        scale = _ref3.scale;
+        baseH = _ref3.baseH;
       var _this$_activeObject$g = this._activeObject.getShapeCenter(),
         cx = _this$_activeObject$g.x,
         cy = _this$_activeObject$g.y;
@@ -1542,9 +1541,9 @@ var Selectable = /*#__PURE__*/function (_Event) {
       var scaleX = useW / (maxX - minX) - 0.2;
       this.transformMatrix = this.transformMatrix.reset();
       if (base === 'w') {
-        this.transformMatrix.scaleU(scale || scaleX);
+        this.transformMatrix.scaleU(scaleX);
       } else {
-        this.transformMatrix.scaleU(scale || scaleY);
+        this.transformMatrix.scaleU(scaleY);
       }
       this.transformMatrix.e += useW / 2 - cx * this.transformMatrix.a;
       this.transformMatrix.f += useH / 2 - cy * this.transformMatrix.d;
@@ -1716,7 +1715,9 @@ var Canvas = /*#__PURE__*/function (_Selectable) {
         return;
       }
       if (!this.corner && !this.skipFindTarget) {
+        console.time("findTarget")
         var t = this.findTarget(p);
+        console.timeEnd("findTarget")
         if (t && t !== target) {
           target && target.set('isActive', false);
           this.setActiveObject(t);
@@ -1886,7 +1887,6 @@ var Canvas = /*#__PURE__*/function (_Selectable) {
         offsetX: evt.offsetX,
         offsetY: evt.offsetY,
         ctrlKey: evt.ctrlKey,
-        altKey: evt.altKey,
         shiftKey: evt.shiftKey,
         deltaY: evt.deltaY
       };
@@ -1965,10 +1965,6 @@ var DrawObject = /*#__PURE__*/function (_Event) {
     _defineProperty(_assertThisInitialized(_this), "displayGraph", true);
     _defineProperty(_assertThisInitialized(_this), "lineCap", 'round');
     _defineProperty(_assertThisInitialized(_this), "lineJoin", 'round');
-    _defineProperty(_assertThisInitialized(_this), "isDash", []);
-    // 虚线
-    _defineProperty(_assertThisInitialized(_this), "isDouble", [1]);
-    // 双线
     _defineProperty(_assertThisInitialized(_this), "fill", "");
     _defineProperty(_assertThisInitialized(_this), "stroke", "");
     _defineProperty(_assertThisInitialized(_this), "opacity", 1.0);
@@ -1994,7 +1990,6 @@ var DrawObject = /*#__PURE__*/function (_Event) {
     _defineProperty(_assertThisInitialized(_this), "cornerBorderColor", '#000');
     _defineProperty(_assertThisInitialized(_this), "cornerColor", '');
     _defineProperty(_assertThisInitialized(_this), "cornerOpacity", 1);
-    _defineProperty(_assertThisInitialized(_this), "cornerDisplay", true);
     _defineProperty(_assertThisInitialized(_this), "transformMatrix", {
       a: 1,
       b: 0,
@@ -2043,7 +2038,7 @@ var DrawObject = /*#__PURE__*/function (_Event) {
   }, {
     key: "transform",
     value: function transform(ctx) {
-      ctx.translate(this.originX, this.originY);
+      ctx.translate(this.originX - this.transformMatrix.e, this.originY - this.transformMatrix.f);
       ctx.rotate(this.angle);
       // ctx.scale(this.scaleX, this.scaleY)
       // let mat = ctx.getTransform()
@@ -2107,8 +2102,7 @@ var DrawObject = /*#__PURE__*/function (_Event) {
         cornerStyle: this.cornerStyle,
         cornerColor: this.cornerColor,
         cornerBorderColor: this.cornerBorderColor,
-        cornerOpacity: this.cornerOpacity,
-        display: this.cornerDisplay
+        cornerOpacity: this.cornerOpacity
       };
     }
   }, {
@@ -2491,12 +2485,6 @@ var Rect = /*#__PURE__*/function (_DrawObject) {
       ctx.lineWidth = this.lineWidth / Math.abs(this.transformMatrix.a);
       ctx.strokeStyle = this.stroke;
       ctx.fillStyle = this.fill;
-      if (!this.isUseMatrix) {
-        x /= this.transformMatrix.a;
-        y /= this.transformMatrix.a;
-        w /= this.transformMatrix.a;
-        h /= this.transformMatrix.a;
-      }
       if (this.radius) {
         ctx.roundRect(x, y, w, h, this.radius);
       } else {
@@ -2651,7 +2639,6 @@ var Polygon = /*#__PURE__*/function (_DrawObject) {
   _createClass(Polygon, [{
     key: "_render",
     value: function _render(ctx) {
-      var _this$isDouble, _this$isDouble2;
       ctx.save();
       ctx.globalCompositeOperation = this.globalCompositeOperation || 'source-over';
       ctx.beginPath();
@@ -2660,27 +2647,10 @@ var Polygon = /*#__PURE__*/function (_DrawObject) {
       this.points.forEach(function (item, index) {
         ctx[index ? 'lineTo' : 'moveTo'](item.x, item.y);
       });
-      !((_this$isDouble = this.isDouble) !== null && _this$isDouble !== void 0 && _this$isDouble[0]) && this.isDash.length && ctx.setLineDash(this.isDash);
       this.type === 'Line' && this.strokeOrFill(ctx);
       ctx.closePath();
       this.type === 'Polygon' && this.strokeOrFill(ctx);
       ctx.restore();
-      if (((_this$isDouble2 = this.isDouble) === null || _this$isDouble2 === void 0 ? void 0 : _this$isDouble2.length) > 1) {
-        ctx.save();
-        ctx.transform(1, 0, 0, 1, 5, 0);
-        ctx.globalCompositeOperation = this.globalCompositeOperation || "source-over";
-        ctx.beginPath();
-        ctx.strokeStyle = this.stroke || "#000";
-        ctx.fillStyle = this.fill || "#000";
-        this.points.forEach(function (item, index) {
-          ctx[index ? "lineTo" : "moveTo"](item.x, item.y);
-        });
-        !this.isDouble[1] && this.isDash.length && ctx.setLineDash(this.isDash);
-        this.type === "Line" && this.strokeOrFill(ctx);
-        ctx.closePath();
-        this.type === "Polygon" && this.strokeOrFill(ctx);
-        ctx.restore();
-      }
       this.needArrow && this.drawArrow(ctx, this.points[0].x, this.points[0].y, (this.points[0].x + this.points[1].x) / 2, (this.points[0].y + this.points[1].y) / 2);
       this.needCenterControl && this.renderCenterControl(ctx);
     }
@@ -3215,7 +3185,7 @@ var Text = /*#__PURE__*/function (_DrawObject) {
       ctx.font = "bold ".concat(fontSize, "px Alibaba_PuHuiTi_Regular");
       ctx.beginPath();
       ctx.fillStyle = this.fill;
-      this.fillText && ctx.fillText(this.text, this.offsetX / this.transformMatrix.a, (-5 + this.offsetY) / this.transformMatrix.a);
+      this.fillText && ctx.fillText(this.text, 0, -5 / this.transformMatrix.a);
       ctx.closePath();
       ctx.restore();
     }

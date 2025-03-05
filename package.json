@@ -1,6 +1,6 @@
 {
   "name": "paper-pen",
-  "version": "0.0.7-release",
+  "version": "0.0.7",
   "description": "A JavaScript library for annotations",
   "main": "index.js",
   "module": "dist/paper-pen.esm.js",
@@ -12,7 +12,17 @@
     "type": "git",
     "url": "git+https://github.com/fwt-1025/paper-pen.git"
   },
-  "keywords": ["2d", "matrix", "Rect", "Polygon",  "Line", "paper-pen", "canvas", "annotate", "paper-pen.js"],
+  "keywords": [
+    "2d",
+    "matrix",
+    "Rect",
+    "Polygon",
+    "Line",
+    "paper-pen",
+    "canvas",
+    "annotate",
+    "paper-pen.js"
+  ],
   "author": "fwt-1025",
   "bugs": {
     "url": "https://github.com/fwt-1025/paper-pen/issues"
@@ -26,5 +36,8 @@
     "@rollup/plugin-node-resolve": "^15.1.0",
     "@rollup/plugin-terser": "^0.4.3",
     "rollup": "^3.26.3"
+  },
+  "dependencies": {
+    "rbush": "^3.0.1"
   }
 }

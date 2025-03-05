@@ -1,4 +1,5 @@
-export class Control{
+import Event from '../event/events'
+export class Control extends Event{
     cornerSize = 10
     cornerStyle = 'square'
     cornerBorderColor = '#000'
@@ -10,11 +11,13 @@ export class Control{
     cursor = 'move'
     isEditing = false
     display = true
+    id = null
     // target = null
     mousemoveHandler = () => null
     mousedownHandler = () => null
     mouseupHandler = () => null
     constructor(options) {
+        super()
         this.setOptions(options)
         // this.cornerSize ||= this.target.cornerSize
         // this.cornerColor ||= this.target.cornerColor
@@ -75,7 +78,8 @@ export class Control{
         // ctx.closePath()
         return {
             x: this.left,
-            y: this.top
+            y: this.top,
+            id: this.id
         }
     }
     set(key, val) {

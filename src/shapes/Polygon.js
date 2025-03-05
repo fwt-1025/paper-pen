@@ -25,10 +25,30 @@ export class Polygon extends DrawObject{
         this.points.forEach((item, index) => {
             ctx[index ? 'lineTo' : 'moveTo'](item.x, item.y)
         })
+        !this.isDouble?.[0] && this.isDash.length && ctx.setLineDash(this.isDash);
         this.type === 'Line' && this.strokeOrFill(ctx)
         ctx.closePath()
         this.type === 'Polygon' && this.strokeOrFill(ctx)
         ctx.restore()
+        if (this.isDouble?.length > 1) {
+            ctx.save();
+            ctx.transform(1, 0, 0, 1, 5, 0);
+            ctx.globalCompositeOperation =
+                this.globalCompositeOperation || "source-over";
+            ctx.beginPath();
+            ctx.strokeStyle = this.stroke || "#000";
+            ctx.fillStyle = this.fill || "#000";
+            this.points.forEach(function (item, index) {
+                ctx[index ? "lineTo" : "moveTo"](item.x, item.y);
+            });
+            !this.isDouble[1] &&
+                this.isDash.length &&
+                ctx.setLineDash(this.isDash);
+            this.type === "Line" && this.strokeOrFill(ctx);
+            ctx.closePath();
+            this.type === "Polygon" && this.strokeOrFill(ctx);
+            ctx.restore();
+        }
         this.needArrow && this.drawArrow(ctx, this.points[0].x, this.points[0].y, (this.points[0].x + this.points[1].x) / 2, (this.points[0].y + this.points[1].y) / 2)
         this.needCenterControl && this.renderCenterControl(ctx)
     }
@@ -66,6 +86,7 @@ export class Polygon extends DrawObject{
             return new Control({
                 left: item.x,
                 top: item.y,
+                id: item.id,
                 target: this,
                 cursor: "pointer",
                 index,

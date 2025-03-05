@@ -10,7 +10,7 @@ export default class Event{
         let fns = this.eventList[eventName]
         if (fns) {
             this.eventList[eventName].forEach(item => {
-                item.call(this,...args)
+                item?.call(this,...args)
             })
         }
     }

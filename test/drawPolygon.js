@@ -1,7 +1,8 @@
 import { Polygon } from "../dist/paper-pen.esm.js"
 export default function drawPolygon (canvas) {
     let poly = null
-    let s = 'before-draw'
+    let status = ['before-draw', 'drawing']
+    let currStatus = ''
     document.addEventListener('keyup', e => {
         if (e.key === 'q' && poly) {
             if (poly.points.length < 3) {
@@ -9,31 +10,31 @@ export default function drawPolygon (canvas) {
                 return
             }
             poly.points.splice(poly.points.length - 1, 2)
-            canvas.set('skipFindTarget', false)
+            // canvas.set('skipFindTarget', false)
             canvas.requestRenderAll()
             poly = null
-            s = 'before-draw'
+            currStatus = status[0]
         }
     })
     canvas.on('mouse:down', e => {
         let {x,y} = canvas.getPointer(e)
-        if (poly && s === 'drawing') {
+        if (poly && currStatus === status[1]) {
             poly.points.splice(poly.points.length - 1, 1, {x, y}, {x, y})
         }
-        if (!poly && s === 'before-draw') {
+        if (!poly && s === status[0]) {
             poly = new Polygon({
                 points: [{x, y}, {x, y}],
                 fill: '#00f',
                 stroke: '#00f',
                 opacity: 0.5
             })
-            canvas.set('skipFindTarget', true)
+            // canvas.set('skipFindTarget', true)
             canvas.add(poly)
-            s = 'drawing'
+            s = status[1]
         }
     })
     canvas.on('mouse:move', e => {
-        if (poly && s === 'drawing') {
+        if (poly && s === status[1]) {
             let { x, y } = canvas.getPointer(e)
             poly.points.splice(poly.points.length - 1, 1, {x, y})
             canvas.requestRenderAll()

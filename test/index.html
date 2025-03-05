@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
     <link rel="stylesheet" href="./style.css">
 </head>
+
 <body>
     <div class="header">
         <ul class="btn">
@@ -39,15 +41,36 @@
         let c = new Canvas('#c', {
             width: 1600,
             height: 700,
+            // bgWidth: 3840 / 4,
+            // bgHeight: 2160 / 4,
             skipFindTarget: false,
             wheel: {
                 scale: true,
                 scroll: true
             },
-            rightMove: true
+            rightMove: true,
+            imageFillMode: "contain",
+
         })
+        console.log(c)
+        c.lowerContext.imageSmoothingEnabled = false
+        // c.lowerContext.imageSmoothingQuality = 'high'
         c.setCanvasStyles(c.upperCanvas, {
             border: '1px solid #000'
+        })
+        c.on('obj:selection', (e) => {
+            console.log(e, c.rBush)
+            let { x, y, deltaX, deltaY } = e
+            let result = c.rBush.search({
+                minX: x,
+                minY: y,
+                maxX: x + deltaX,
+                maxY: y + deltaY
+            })
+            console.log(result)
+        })
+        c.on('obj:activeted', o => {
+            console.log(o)
         })
         let c1 = new Canvas('#c1', {
             width: 1600,
@@ -60,8 +83,9 @@
             rightMove: true
         })
         let img = new Image()
-        img.src = './500540b041a30ad044b5a19344f1b24f.jpg'
+        img.src = './FrontWide_00083_1735217704920000_2733.jpg'
         img.onload = () => {
+            console.log(img.naturalHeight, img.naturalWidth)
             c.setBackground(img)
             let rect = new Rect({
                 left: 100,
@@ -79,28 +103,46 @@
                 textX: rect.left,
                 textY: rect.top
             })
-            
-            let poly = new Polygon({
-                points: [
-                    {x: 300, y:300},
-                    {x: 230, y: 450},
-                    {x: 600, y: 550},
-                    {x: 400, y: 300},
-                ],
-                stroke: '#000',
-                lineWidth: 5,
-                fill: '#0f0',
-                opacity: .7
-            })
-            c.add(poly, rect, text)
+            let shapeList = []
+            console.time("开始")
+            for (let i = 0; i < 1000; i++) {
+                let polyPoints = new Array(4).fill({}).map(item => ({
+                    x: Math.floor(Math.random() * 1600),
+                    y: Math.floor(Math.random() * 700),
+                }))
+                // console.log(polyPoints)
+                let poly = new Polygon({
+                    points: polyPoints,
+                    stroke: '#000',
+                    lineWidth: 5,
+                    fill: '#0f0',
+                    opacity: .7
+                })
+                // let rect = new Rect({
+                //     left: 50,
+                //     top: 50,
+                //     width: 50,
+                //     height: 50,
+                //     fill: '#0f0',
+                //     // needControl: false,
+                //     opacity: .7
+                // })
+                shapeList.push(poly)
+            }
+            c.add(...shapeList)
             console.log(c.toObjects())
+            console.timeEnd("开始")
         }
+        console.log(c)
+        c.on('control.mouse:down', (e) => {
+            console.log(e)
+        })
         function offAllEvents() {
             c.offAll()
         }
         btn.addEventListener('mousedown', e => {
             tips.innerHTML = ''
-            switch(e.target.innerText) {
+            switch (e.target.innerText) {
                 case '选择':
                     status = 'select'
                     c.offAll('mouse:down')
@@ -114,12 +156,12 @@
                 case '多边形':
                     offAllEvents()
                     drawPolygon(c)
-                    tips.innerHTML = '按q结束绘制'
+                    tips.innerHTML = '按空格结束绘制'
                     break
                 case '线':
                     offAllEvents()
                     drawLine(c)
-                    tips.innerHTML = '按q结束绘制'
+                    tips.innerHTML = '按空格结束绘制'
                     break
                 case '点':
                     offAllEvents()
@@ -146,4 +188,5 @@
         })
     </script>
 </body>
+
 </html>

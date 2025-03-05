@@ -19,12 +19,12 @@ export class Text extends DrawObject {
         ctx.save()
         ctx.translate(this.parent?.textX || this.textX, this.parent?.textY || this.textY)
         // ctx.rotate(this.parent.angle)
-        let fontSize = this.fontSize / this.transformMatrix.a
+        let fontSize = Math.ceil(this.fontSize / this.transformMatrix.a)
         ctx.font = `bold ${fontSize}px Alibaba_PuHuiTi_Regular`
         ctx.beginPath()
 
         ctx.fillStyle = this.fill
-        this.fillText && ctx.fillText(this.text, 0, -5 / this.transformMatrix.a)
+        this.fillText && ctx.fillText(this.text, this.offsetX / this.transformMatrix.a, ((-5 + this.offsetY) / this.transformMatrix.a))
 
         ctx.closePath()
         ctx.restore()

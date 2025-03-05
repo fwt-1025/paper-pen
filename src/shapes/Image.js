@@ -1,9 +1,13 @@
 import { DrawObject } from "./DrawObject";
 import { Control } from "../control/Controls";
+import { Point } from "../utils/Point";
 
 export class Image extends DrawObject {
     constructor(options) {
         super(options);
+        this.type = "Image";
+        this.baseWH = options.baseWH || false;
+        this.whMatrix = options.whMatrix || false;
         // this.img = options.img
         // this.imgOptions = options.imgOptions || [] // []
     }
@@ -23,9 +27,29 @@ export class Image extends DrawObject {
             ctx.drawImage(this.img, sx, sy);
         } else if (this.imgOptions.length === 4) {
             let [sx, sy, sw, sh] = this.imgOptions;
+            if (this.baseWH) {
+                sx = sx - Math.ceil(sw / 2 / this.transformMatrix.a)
+                sy = sy - Math.ceil(sh / 2 / this.transformMatrix.a)
+                sw = Math.ceil(sw / this.transformMatrix.a)
+                sh = Math.ceil(sh / this.transformMatrix.a)
+            } else if (this.whMatrix) {
+                sw = Math.ceil(sw / this.transformMatrix.a)
+                sh = Math.ceil(sh / this.transformMatrix.a)
+            }
             ctx.drawImage(this.img, sx, sy, sw, sh);
         } else if (this.imgOptions.length === 8) {
             let [sx, sy, sw, sh, dx, dy, dw, dh] = this.imgOptions;
+            if (this.baseWH) {
+                sx = sx - Math.ceil(sw / 2 / this.transformMatrix.a)
+                sy = sy - Math.ceil(sh / 2 / this.transformMatrix.a)
+                sw = Math.ceil(sw / this.transformMatrix.a)
+                sh = Math.ceil(sh / this.transformMatrix.a)
+            } else if (this.whMatrix) {
+                sw = Math.ceil(sw / this.transformMatrix.a)
+                sh = Math.ceil(sh / this.transformMatrix.a)
+                dw = Math.ceil(dw / this.transformMatrix.a)
+                dh = Math.ceil(dh / this.transformMatrix.a)
+            }
             ctx.drawImage(this.img, sx, sy, sw, sh, dx, dy, dw, dh);
         }
         // }
@@ -55,8 +79,6 @@ export class Image extends DrawObject {
                 top: y - h / 2,
                 target: this,
                 base: "right-bottom",
-                cursorHandler: scaleCursor,
-                mousemoveHandler: calcScaleAll,
                 ...commonConfig,
             }),
             new Control({
@@ -66,8 +88,6 @@ export class Image extends DrawObject {
                 top: y - h / 2,
                 target: this,
                 base: "center-bottom",
-                cursorHandler: scaleCursor,
-                mousemoveHandler: calcScaleY,
                 ...commonConfig,
             }),
             new Control({
@@ -77,8 +97,6 @@ export class Image extends DrawObject {
                 top: y - h / 2,
                 target: this,
                 base: "left-bottom",
-                cursorHandler: scaleCursor,
-                mousemoveHandler: calcScaleAll,
                 ...commonConfig,
             }),
             new Control({
@@ -88,8 +106,6 @@ export class Image extends DrawObject {
                 top: y,
                 target: this,
                 base: "left-center",
-                cursorHandler: scaleCursor,
-                mousemoveHandler: calcScaleX,
                 ...commonConfig,
             }),
             new Control({
@@ -99,8 +115,6 @@ export class Image extends DrawObject {
                 top: y + h / 2,
                 target: this,
                 base: "left-top",
-                cursorHandler: scaleCursor,
-                mousemoveHandler: calcScaleAll,
                 ...commonConfig,
             }),
             new Control({
@@ -110,8 +124,6 @@ export class Image extends DrawObject {
                 top: y + h / 2,
                 target: this,
                 base: "center-top",
-                cursorHandler: scaleCursor,
-                mousemoveHandler: calcScaleY,
                 ...commonConfig,
             }),
             new Control({
@@ -121,8 +133,6 @@ export class Image extends DrawObject {
                 top: y + h / 2,
                 target: this,
                 base: "right-top",
-                cursorHandler: scaleCursor,
-                mousemoveHandler: calcScaleAll,
                 ...commonConfig,
             }),
             new Control({
@@ -132,8 +142,6 @@ export class Image extends DrawObject {
                 top: y,
                 target: this,
                 base: "right-center",
-                cursorHandler: scaleCursor,
-                mousemoveHandler: calcScaleX,
                 ...commonConfig,
             }),
         ];
@@ -150,7 +158,6 @@ export class Image extends DrawObject {
                     target: this,
                     base: "center-center",
                     cursor: "crosshair",
-                    mousemoveHandler: rotateObject,
                     ...commonConfig,
                 })
             );

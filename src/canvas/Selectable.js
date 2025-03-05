@@ -1,5 +1,6 @@
 import Event from "../event/events.js";
 import { Matrix } from "../utils/matrix.js";
+import RBush from "rbush";
 
 const defaultTransfromMatrix = {
     scaleX: 1,
@@ -64,18 +65,20 @@ export class Selectable extends Event {
     createCanvas = []
     canvasList = []
     contextList = []
+    rBush = null
     constructor(el, options) {
         super();
         this.setOptions(options);
         this.el = el;
         id++;
-        this.initLowerCanvas();
+        // this.initLowerCanvas();
         this.initCanvasContainer();
-        this.initUpperCanvas();
+        // this.initUpperCanvas();
         this.createCanvas.length && this.createCanvasElement()
         if (this.mask && this.maskCanvas) this.initMaskCanvas()
         this.cacheCanvas = document.createElement('canvas')
         this.cacheCtx = this.cacheCanvas.getContext('2d')
+        this.rBush = new RBush()
     }
     setOptions(options) {
         for (const key in options) {
@@ -107,16 +110,20 @@ export class Selectable extends Event {
                 "Canvas must have an 'el' parameter and cannot be empty"
             );
         }
-        if (typeof this.el === "string") {
-            this.lowerCanvas = document.querySelector(this.el);
-        } else {
-            this.lowerCanvas = this.el;
+        if (!this.lowerCanvas) {
+            if (typeof this.el === "string") {
+                this.lowerCanvas = document.querySelector(this.el);
+            } else {
+                this.lowerCanvas = this.el;
+            }
+            this.canvasList.push(this.lowerCanvas)
+            this.lowerCanvas.classList.add("lower-canvas-" + id);
         }
         this.setCanvasStyles(this.lowerCanvas);
-        this.lowerCanvas.classList.add("lower-canvas-"+id);
-        this.lowerContext = this.lowerCanvas.getContext("2d"); //get 2d context from the lower-canvas element
-        this.canvasList.push(this.lowerCanvas)
-        this.contextList.push(this.lowerContext)
+        if (!this.lowerContext) {
+            this.lowerContext = this.lowerCanvas.getContext("2d"); //get 2d context from the lower-canvas element
+            this.contextList.push(this.lowerContext)
+        }
     }
     initMaskCanvas() {
         if (this.mask && this.maskCanvas) {
@@ -128,25 +135,33 @@ export class Selectable extends Event {
         }
     }
     initCanvasContainer() {
-        this.canvasContainer = document.createElement("div");
-        this.canvasContainer.classList.add("canvas-container-" + id);
-        this.lowerCanvas?.parentNode?.replaceChild(
-            this.canvasContainer,
-            this.lowerCanvas
-        );
-        this.canvasContainer.appendChild(this.lowerCanvas);
+        if (!this.canvasContainer) {
+            this.canvasContainer = document.createElement("div");
+            this.canvasContainer.classList.add("canvas-container-" + id);
+        }
+        this.initLowerCanvas()
+        this.initUpperCanvas()
+        if (this.lowerCanvas?.parentNode !== this.canvasContainer) {
+            this.lowerCanvas?.parentNode?.replaceChild(
+                this.canvasContainer,
+                this.lowerCanvas
+            );
+            this.canvasContainer.appendChild(this.lowerCanvas);
+        }
         this.canvasContainer.style.position = "relative";
         this.canvasContainer.style.width = this.width + "px";
         this.canvasContainer.style.height = this.height + "px";
     }
     initUpperCanvas() {
-        this.upperCanvas = document.createElement("canvas");
-        this.upperCanvas.classList.add("upper-canvas-"+id);
+        if (!this.upperCanvas) {
+            this.upperCanvas = document.createElement("canvas");
+            this.upperCanvas.classList.add("upper-canvas-" + id);
+            this.canvasList.push(this.upperCanvas)
+            this.canvasContainer?.appendChild(this.upperCanvas);
+        }
         this.upperContext = this.upperCanvas.getContext("2d");
         this.setCanvasStyles(this.upperCanvas);
-        this.canvasList.push(this.upperCanvas)
         this.upperCanvas.style.setProperty('z-index', id)
-        this.canvasContainer?.appendChild(this.upperCanvas);
         // this.canvasList.push(this.upperCanvas)
         // this.contextList.push(this.upperContext)
     }
@@ -167,7 +182,8 @@ export class Selectable extends Event {
     }
     add(...rest) {
         rest.forEach((item) => {
-            item.setCoords && item.setCoords(this.lowerContext, this);
+            item.needControl && item.setCoords && item.setCoords(this.lowerContext, this);
+            // this.rBush.insert(item.getBoundingBox())
         });
         this._objects.push(...rest);
         this.emit("obj:add");
@@ -221,16 +237,19 @@ export class Selectable extends Event {
                 } else if (this.imageFillMode === "contain") {
                     this.bgWidth = this.height * pixel;
                     this.bgHeight = this.height;
+                } else if (!options && this.imageFillMode === 'baseCanvas') {
+                    this.bgWidth = this.width
+                    this.bgHeight = this.height
                 }
                 if (options?.width && options?.height) {
                     this.bgWidth = options.width;
                     this.bgHeight = options.height;
                 }
-                this.cacheCanvas.width = this.bgWidth
-                this.cacheCanvas.height = this.bgHeight
+                this.cacheCanvas.width = this.backgroundImage.naturalWidth
+                this.cacheCanvas.height = this.backgroundImage.naturalHeight
                 // this.setCanvasStyles(this.lowerCanvas);
                 // this.setCanvasStyles(this.upperCanvas);
-                this.cacheCtx.drawImage(this.backgroundImage, this.bgLeft || 0, this.bgTop || 0, this.bgWidth, this.bgHeight)
+                this.cacheCtx.drawImage(this.backgroundImage, this.bgLeft || 0, this.bgTop || 0, this.backgroundImage.naturalWidth, this.backgroundImage.naturalHeight)
                 this.emit("img:load", this);
             };
             this.requestRenderAll();
@@ -238,8 +257,8 @@ export class Selectable extends Event {
         }
         this.backgroundImage = bg;
         let pixel =
-        this.backgroundImage.naturalWidth ? (this.backgroundImage.naturalWidth /
-            this.backgroundImage.naturalHeight) : this.backgroundImage.width ? (this.backgroundImage.width/ this.backgroundImage.height) : 1920 / 1080;
+            this.backgroundImage.naturalWidth ? (this.backgroundImage.naturalWidth /
+                this.backgroundImage.naturalHeight) : this.backgroundImage.width ? (this.backgroundImage.width / this.backgroundImage.height) : 1920 / 1080;
         // let width, height
         if (this.imageFillMode === "cover") {
             this.bgWidth = this.width;
@@ -247,14 +266,17 @@ export class Selectable extends Event {
         } else if (this.imageFillMode === "contain") {
             this.bgWidth = this.height * pixel;
             this.bgHeight = this.height;
+        } else if (!options && this.imageFillMode === 'baseCanvas') {
+            this.bgWidth = this.width
+            this.bgHeight = this.height
         }
         if (options?.width && options?.height) {
             this.bgWidth = options.width;
             this.bgHeight = options.height;
         }
-        this.cacheCanvas.width = this.bgWidth
-        this.cacheCanvas.height = this.bgHeight
-        this.cacheCtx.drawImage(this.backgroundImage, this.bgLeft || 0, this.bgTop || 0, this.bgWidth, this.bgHeight)
+        this.cacheCanvas.width = this.backgroundImage.naturalWidth
+        this.cacheCanvas.height = this.backgroundImage.naturalHeight
+        this.cacheCtx.drawImage(this.backgroundImage, this.bgLeft || 0, this.bgTop || 0, this.backgroundImage.naturalWidth, this.backgroundImage.naturalHeight)
         this.requestRenderAll();
     }
     drawBackground(ctx) {
@@ -492,7 +514,7 @@ export class Selectable extends Event {
     toObjects() {
         return {
             objects: this._objects.map(item => {
-                let {points,
+                let { points,
                     scaleX,
                     scaleY,
                     translateX,
@@ -501,7 +523,7 @@ export class Selectable extends Event {
                     transformMatrix,
                     width,
                     height,
-                    left, 
+                    left,
                     top,
                     skewX,
                     skewY,
@@ -521,7 +543,7 @@ export class Selectable extends Event {
                     transformMatrix,
                     width,
                     height,
-                    left, 
+                    left,
                     top,
                     skewX,
                     skewY,
@@ -534,5 +556,24 @@ export class Selectable extends Event {
             }),
             pixelSize: this.pixelSize,
         };
+    }
+    setFocusMode({ base = 'w', baseW, baseH, scale }) {
+        let { x: cx, y: cy } = this._activeObject.getShapeCenter()
+        let { maxX, maxY, minX, minY } = this._activeObject.getMaxAndMinmun()
+        let { w, h } = { w: this.width, h: this.height }
+        let useW = baseW || w,
+            useH = baseH || h
+        let scaleY = useH / (maxY - minY) - 0.2
+        let scaleX = useW / (maxX - minX) - 0.2
+        this.transformMatrix = this.transformMatrix.reset()
+        if (base === 'w') {
+            this.transformMatrix.scaleU(scale || scaleX)
+        } else {
+            this.transformMatrix.scaleU(scale || scaleY)
+        }
+        this.transformMatrix.e += (useW / 2) - cx * this.transformMatrix.a
+        this.transformMatrix.f += (useH / 2) - cy * this.transformMatrix.d
+        // this.ctx.setTransform(this.transformMatrix.clone())
+        this.requestRenderAll()
     }
 }

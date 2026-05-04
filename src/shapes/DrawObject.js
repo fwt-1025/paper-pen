@@ -52,7 +52,7 @@ export class DrawObject extends Event {
     }
     setOptions(options) {
         for (const key in options) {
-            // For each key in options object...
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
             this[key] = options[key];
         }
         if (this.left && this.top) {

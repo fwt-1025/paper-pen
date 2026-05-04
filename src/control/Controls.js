@@ -27,6 +27,7 @@ export class Control extends Event{
     }
     setOptions(options) {
         for (let key in options) {
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
             this[key] = options[key]
         }
     }

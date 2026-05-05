@@ -1,7 +1,3 @@
-export let cache = {
-    startPos: null
-}
-
 export function getDefaultParams (target, pointer, defaultTransform, mousedownPos) {
     const { width, height, left, top, originX, originY, angle } = defaultTransform
     let  {x: mx, y: my} = mousedownPos
@@ -54,7 +50,7 @@ export function getDefaultParams (target, pointer, defaultTransform, mousedownPo
 //     )
 // }
 
-export const moveObject = (target, loomObj, pos, defaultTransform, mousedownPos) => {
+export const moveObject = (target, loomObj, pos, defaultTransform, mousedownPos, cache) => {
     console.log(target)
     if (loomObj.lockMove) return
     if (!cache.startPos) {

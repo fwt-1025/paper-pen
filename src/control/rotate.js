@@ -1,6 +1,6 @@
-import { getDefaultParams, cache } from '../utils/editObject'
+import { getDefaultParams } from '../utils/editObject'
 
-export const rotateObject = (target, loomObj, pos, defaultTransform, mousedownPos) => {
+export const rotateObject = (target, loomObj, pos, defaultTransform, mousedownPos, cache) => {
     let {
         originX,
         originY,

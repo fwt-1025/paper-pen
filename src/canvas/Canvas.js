@@ -1,5 +1,5 @@
 import { Selectable } from "./Selectable";
-import { cache, moveObject } from '../utils/editObject'
+import { moveObject } from '../utils/editObject'
 const addEvent = (el, eventFnName, fn) => {
     el.addEventListener(eventFnName, fn);
 };
@@ -141,7 +141,8 @@ export class Canvas extends Selectable {
                 this.corner.target,
                 pointer,
                 this.defaultTransform,
-                this.mousedownPos
+                this.mousedownPos,
+                this._cache
             );
             this.emit('control.mouse:move', this.corner.getCoords())
             this.requestRenderAll();
@@ -150,7 +151,8 @@ export class Canvas extends Selectable {
             moveObject(this.corner, this._activeObject,
                 pointer,
                 this.defaultTransform,
-                this.mousedownPos)
+                this.mousedownPos,
+                this._cache)
             this.requestRenderAll()
         }
         const groupSelector = this._groupSelector
@@ -185,7 +187,7 @@ export class Canvas extends Selectable {
         }
         // let p = this.getPointer(optEvent)
         this.objectMoving = false
-        cache.startPos = null
+        this._cache.startPos = null
         if (evt.button === 2) {
             return
         }

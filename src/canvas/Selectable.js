@@ -66,6 +66,9 @@ export class Selectable extends Event {
     canvasList = []
     contextList = []
     rBush = null
+    _cache = {
+        startPos: null
+    }
     constructor(el, options) {
         super();
         this.setOptions(options);
